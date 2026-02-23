@@ -13,6 +13,7 @@ use Lettr\Dto\RateLimit;
 use Lettr\Dto\SendingQuota;
 use Lettr\Exceptions\ApiException;
 use Lettr\Exceptions\ConflictException;
+use Lettr\Exceptions\ForbiddenException;
 use Lettr\Exceptions\NotFoundException;
 use Lettr\Exceptions\QuotaExceededException;
 use Lettr\Exceptions\RateLimitException;
@@ -158,6 +159,7 @@ final class Client implements TransporterContract
 
             match ($statusCode) {
                 401 => throw new UnauthorizedException($message, $e),
+                403 => throw new ForbiddenException($message, $e),
                 404 => throw new NotFoundException($message, $e),
                 409 => throw new ConflictException($message, $e),
                 422 => throw new ValidationException(

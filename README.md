@@ -521,6 +521,7 @@ use Lettr\Exceptions\TransporterException;
 use Lettr\Exceptions\ValidationException;
 use Lettr\Exceptions\NotFoundException;
 use Lettr\Exceptions\UnauthorizedException;
+use Lettr\Exceptions\ForbiddenException;
 use Lettr\Exceptions\ConflictException;
 use Lettr\Exceptions\QuotaExceededException;
 use Lettr\Exceptions\RateLimitException;
@@ -534,6 +535,9 @@ try {
 } catch (UnauthorizedException $e) {
     // Invalid API key (401)
     echo "Authentication failed: " . $e->getMessage();
+} catch (ForbiddenException $e) {
+    // Insufficient API key permissions (403)
+    echo "Forbidden: " . $e->getMessage();
 } catch (NotFoundException $e) {
     // Resource not found (404)
     echo "Not found: " . $e->getMessage();

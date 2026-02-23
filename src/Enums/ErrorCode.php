@@ -23,6 +23,7 @@ enum ErrorCode: string
     case InvalidRecipient = 'invalid_recipient';
     case MessageTooLarge = 'message_too_large';
     case AttachmentTooLarge = 'attachment_too_large';
+    case InsufficientScope = 'insufficient_scope';
 
     /**
      * Get a human-readable message for the error code.
@@ -44,6 +45,7 @@ enum ErrorCode: string
             self::InvalidRecipient => 'One or more recipients are invalid.',
             self::MessageTooLarge => 'The message exceeds the maximum size limit.',
             self::AttachmentTooLarge => 'One or more attachments exceed the size limit.',
+            self::InsufficientScope => 'Your API key does not have the required permissions for this action.',
         };
     }
 
@@ -60,6 +62,7 @@ enum ErrorCode: string
             self::DomainAlreadyExists,
             self::WebhookNotFound,
             self::InvalidApiKey,
+            self::InsufficientScope,
             self::InvalidRecipient,
             self::MessageTooLarge,
             self::AttachmentTooLarge,
