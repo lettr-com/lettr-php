@@ -19,7 +19,7 @@ final readonly class SendEmailData implements Arrayable
     public function __construct(
         public EmailAddress $from,
         public EmailAddressCollection $to,
-        public Subject $subject,
+        public ?Subject $subject = null,
         public ?string $text = null,
         public ?string $html = null,
         public ?EmailAddressCollection $cc = null,
@@ -41,7 +41,7 @@ final readonly class SendEmailData implements Arrayable
      * @param  array{
      *     from: string|array{email: string, name?: string},
      *     to: array<string>,
-     *     subject: string,
+     *     subject?: string|null,
      *     text?: string|null,
      *     html?: string|null,
      *     cc?: array<string>|null,
@@ -66,7 +66,7 @@ final readonly class SendEmailData implements Arrayable
         return new self(
             from: $from,
             to: EmailAddressCollection::forRecipients($data['to']),
-            subject: new Subject($data['subject']),
+            subject: isset($data['subject']) ? new Subject($data['subject']) : null,
             text: $data['text'] ?? null,
             html: $data['html'] ?? null,
             cc: isset($data['cc']) ? EmailAddressCollection::from($data['cc']) : null,
@@ -95,8 +95,11 @@ final readonly class SendEmailData implements Arrayable
         $data = [
             'from' => $this->from->address,
             'to' => $this->to->toStrings(),
-            'subject' => (string) $this->subject,
         ];
+
+        if ($this->subject !== null) {
+            $data['subject'] = (string) $this->subject;
+        }
 
         if ($this->from->name !== null) {
             $data['from_name'] = $this->from->name;

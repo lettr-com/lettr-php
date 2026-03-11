@@ -107,7 +107,7 @@ final class EmailService
     public function sendTemplate(
         string|EmailAddress $from,
         array|string $to,
-        string $subject,
+        ?string $subject,
         string $templateSlug,
         ?int $templateVersion = null,
         ?int $projectId = null,
@@ -118,8 +118,11 @@ final class EmailService
         $builder = $this->create()
             ->from($from->address, $from->name)
             ->to(is_array($to) ? $to : [$to])
-            ->subject($subject)
             ->useTemplate($templateSlug, $templateVersion, $projectId);
+
+        if ($subject !== null) {
+            $builder->subject($subject);
+        }
 
         if ($substitutionData !== null) {
             $builder->substitutionData($substitutionData);

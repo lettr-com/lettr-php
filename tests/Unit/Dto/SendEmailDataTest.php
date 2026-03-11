@@ -2,8 +2,10 @@
 
 declare(strict_types=1);
 
+use Lettr\Builders\EmailBuilder;
 use Lettr\Collections\EmailAddressCollection;
 use Lettr\Dto\Email\SendEmailData;
+use Lettr\Exceptions\InvalidValueException;
 use Lettr\ValueObjects\EmailAddress;
 use Lettr\ValueObjects\Subject;
 
@@ -80,6 +82,26 @@ test('toArray includes from_name when provided', function (): void {
         ->and($array['from_name'])->toBe('Sender Name');
 });
 
+test('can create SendEmailData without subject when using template', function (): void {
+    $data = SendEmailData::from([
+        'from' => 'sender@example.com',
+        'to' => ['recipient@example.com'],
+        'template_slug' => 'welcome-email',
+    ]);
+
+    expect($data->subject)->toBeNull();
+});
+
+test('toArray excludes subject when null', function (): void {
+    $data = SendEmailData::from([
+        'from' => 'sender@example.com',
+        'to' => ['recipient@example.com'],
+        'template_slug' => 'welcome-email',
+    ]);
+
+    expect($data->toArray())->not->toHaveKey('subject');
+});
+
 test('toArray excludes null optional fields', function (): void {
     $data = SendEmailData::from([
         'from' => 'sender@example.com',
@@ -98,4 +120,39 @@ test('toArray excludes null optional fields', function (): void {
         ->and($array)->not->toHaveKey('metadata')
         ->and($array)->not->toHaveKey('substitution_data')
         ->and($array)->not->toHaveKey('tag');
+});
+
+// EmailBuilder subject validation
+
+test('EmailBuilder requires subject when no template slug', function (): void {
+    expect(
+        fn () => EmailBuilder::create()
+            ->from('sender@example.com')
+            ->to(['recipient@example.com'])
+            ->html('<p>Hello</p>')
+            ->build()
+    )->toThrow(InvalidValueException::class, 'Subject is required when not using a template.');
+});
+
+test('EmailBuilder does not require subject when template slug is set', function (): void {
+    $data = EmailBuilder::create()
+        ->from('sender@example.com')
+        ->to(['recipient@example.com'])
+        ->useTemplate('welcome-email')
+        ->build();
+
+    expect($data->subject)->toBeNull()
+        ->and($data->templateSlug)->toBe('welcome-email');
+});
+
+test('EmailBuilder allows subject to be set alongside template slug', function (): void {
+    $data = EmailBuilder::create()
+        ->from('sender@example.com')
+        ->to(['recipient@example.com'])
+        ->subject('Override Subject')
+        ->useTemplate('welcome-email')
+        ->build();
+
+    expect((string) $data->subject)->toBe('Override Subject')
+        ->and($data->templateSlug)->toBe('welcome-email');
 });
