@@ -386,8 +386,8 @@ final class EmailBuilder
             throw new InvalidValueException('At least one recipient is required.');
         }
 
-        if ($this->subject === null) {
-            throw new InvalidValueException('Subject is required.');
+        if ($this->subject === null && $this->templateSlug === null) {
+            throw new InvalidValueException('Subject is required when not using a template.');
         }
 
         // Content is required unless using a template

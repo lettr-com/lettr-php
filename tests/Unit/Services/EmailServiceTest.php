@@ -219,6 +219,22 @@ test('sendTemplate helper without optional parameters', function (): void {
         ->and($transporter->lastData)->not->toHaveKey('substitution_data');
 });
 
+test('sendTemplate helper without subject lets template define it', function (): void {
+    $transporter = new MockTransporter;
+    $transporter->response = ['request_id' => 'req_tpl3', 'accepted' => 1, 'rejected' => 0];
+
+    $service = new EmailService($transporter);
+    $service->sendTemplate(
+        from: 'sender@example.com',
+        to: 'recipient@example.com',
+        subject: null,
+        templateSlug: 'welcome-email',
+    );
+
+    expect($transporter->lastData['template_slug'])->toBe('welcome-email')
+        ->and($transporter->lastData)->not->toHaveKey('subject');
+});
+
 test('send includes quota from response headers', function (): void {
     $transporter = new MockTransporter;
     $transporter->response = ['request_id' => 'req_quota', 'accepted' => 1, 'rejected' => 0];

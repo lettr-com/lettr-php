@@ -127,15 +127,24 @@ $response = $lettr->emails()->sendText(
     text: 'Plain text content',
 );
 
-// Template email
+// Template email (subject is optional — if omitted, the template must have a subject defined,
+// otherwise the API will return an error)
+$response = $lettr->emails()->sendTemplate(
+    from: 'sender@example.com',
+    to: 'recipient@example.com',
+    subject: null,
+    templateSlug: 'welcome-email',
+    templateVersion: 2,
+    projectId: 123,
+    substitutionData: ['name' => 'John'],
+);
+
+// Override the template subject
 $response = $lettr->emails()->sendTemplate(
     from: 'sender@example.com',
     to: 'recipient@example.com',
     subject: 'Welcome!',
     templateSlug: 'welcome-email',
-    templateVersion: 2,
-    projectId: 123,
-    substitutionData: ['name' => 'John'],
 );
 ```
 
@@ -168,8 +177,10 @@ $response = $lettr->emails()->send(
     $lettr->emails()->create()
         ->from('sender@example.com')
         ->to(['recipient@example.com'])
-        ->subject('Your Order #{{order_id}}')
         ->useTemplate('order-confirmation', version: 1, projectId: 123)
+        // subject() is optional when using a template — if omitted, the template must have a subject
+        // defined, otherwise the API will return an error
+        ->subject('Your Order #{{order_id}}')
         ->substitutionData([
             'order_id' => '12345',
             'customer_name' => 'John Doe',
