@@ -7,6 +7,7 @@ namespace Lettr\Builders;
 use Lettr\Collections\AttachmentCollection;
 use Lettr\Collections\EmailAddressCollection;
 use Lettr\Dto\Email\Attachment;
+use Lettr\Dto\Email\CustomHeaders;
 use Lettr\Dto\Email\EmailOptions;
 use Lettr\Dto\Email\Metadata;
 use Lettr\Dto\Email\SendEmailData;
@@ -50,6 +51,8 @@ final class EmailBuilder
     private bool $performSubstitutions = true;
 
     private ?Metadata $metadata = null;
+
+    private ?CustomHeaders $headers = null;
 
     private ?SubstitutionData $substitutionData = null;
 
@@ -286,6 +289,34 @@ final class EmailBuilder
     }
 
     /**
+     * Set custom email headers.
+     *
+     * @param  array<string, string>|CustomHeaders  $headers
+     */
+    public function headers(array|CustomHeaders $headers): self
+    {
+        $this->headers = $headers instanceof CustomHeaders
+            ? $headers
+            : CustomHeaders::from($headers);
+
+        return $this;
+    }
+
+    /**
+     * Add a custom email header.
+     */
+    public function addHeader(string $name, string $value): self
+    {
+        if ($this->headers === null) {
+            $this->headers = CustomHeaders::from([$name => $value]);
+        } else {
+            $this->headers = $this->headers->set($name, $value);
+        }
+
+        return $this;
+    }
+
+    /**
      * Set substitution data for templates.
      *
      * @param  array<string, mixed>|SubstitutionData  $data
@@ -415,6 +446,7 @@ final class EmailBuilder
             attachments: $this->attachments,
             options: $options,
             metadata: $this->metadata,
+            headers: $this->headers,
             substitutionData: $this->substitutionData,
             tag: $this->tag,
             projectId: $this->projectId,

@@ -193,7 +193,27 @@ $response = $lettr->emails()->send(
 );
 ```
 
+### Custom Headers
+
+You can add custom email headers (e.g. `X-Custom-ID`, `X-Entity-Ref-ID`) to your emails. Maximum 10 headers, each value up to 998 characters:
+
+```php
+$email = $lettr->emails()->create()
+    ->from('sender@example.com')
+    ->to(['recipient@example.com'])
+    ->subject('Hello')
+    ->html('<p>Content</p>')
+    // Bulk set
+    ->headers(['X-Custom-ID' => 'abc-123', 'X-Entity-Ref-ID' => 'order-456'])
+    // Or add individually
+    ->addHeader('X-Custom-ID', 'abc-123');
+```
+
+> **Note:** Some standard headers (e.g. `List-Unsubscribe` for non-transactional emails) may be overwritten by the email delivery provider. Use custom headers for application-specific headers like `X-Custom-ID`.
+
 ### Email Options
+
+Emails are sent as **transactional by default**, matching the API's default behavior. For marketing emails, explicitly set `transactional(false)`:
 
 ```php
 $email = $lettr->emails()->create()
@@ -204,13 +224,29 @@ $email = $lettr->emails()->create()
     // Tracking
     ->withClickTracking(true)
     ->withOpenTracking(true)
-    // Mark as transactional (bypasses unsubscribe lists)
+    // Mark as marketing (non-transactional)
     ->transactional(false)
     // CSS inlining
     ->withInlineCss(true)
     // Template variable substitution
     ->withSubstitutions(true);
 ```
+
+### Marketing Emails & Unsubscribe
+
+When sending marketing emails (`transactional(false)`), the email provider automatically adds `List-Unsubscribe` and `List-Unsubscribe-Post` headers for compliance. To allow recipients to unsubscribe from your marketing emails:
+
+1. **Add an unsubscribe link in your HTML** using the `data-msys-unsubscribe` attribute:
+
+```html
+<a data-msys-unsubscribe="1"
+   href="https://yourapp.com/unsubscribe"
+   title="Unsubscribe">Unsubscribe from these emails</a>
+```
+
+The `href` must use `https://` — when clicked, the user will be redirected to your URL. The actual unsubscribe handling should be done server-side by listening for webhook events.
+
+2. **Listen for unsubscribe events** via webhooks — subscribe to `link_unsubscribe` and `list_unsubscribe` event types to process unsubscribes in your application.
 
 ## Domain Management
 
