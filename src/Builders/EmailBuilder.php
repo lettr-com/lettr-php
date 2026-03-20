@@ -43,7 +43,7 @@ final class EmailBuilder
 
     private bool $openTracking = true;
 
-    private bool $transactional = false;
+    private bool $transactional = true;
 
     private bool $inlineCss = true;
 
