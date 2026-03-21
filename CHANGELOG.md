@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.3.0] - 2026-03-21
+
+### Added
+- Custom email headers support via `CustomHeaders` DTO, `EmailBuilder::headers()` and `EmailBuilder::addHeader()` methods
+- Validation for max 10 headers and max 998 characters per header value
+
+### Fixed
+- Changed default `transactional` option in `EmailBuilder` from `false` to `true` to match the API default
+
 ## [0.1.3] - 2025-01-23
 
 ### Fixed
