@@ -28,6 +28,7 @@ final readonly class SendEmailData implements Arrayable
         public ?AttachmentCollection $attachments = null,
         public ?EmailOptions $options = null,
         public ?Metadata $metadata = null,
+        public ?CustomHeaders $headers = null,
         public ?SubstitutionData $substitutionData = null,
         public ?Tag $tag = null,
         public ?int $projectId = null,
@@ -50,6 +51,7 @@ final readonly class SendEmailData implements Arrayable
      *     attachments?: array<array{name: string, type: string, data: string}>|null,
      *     options?: array{click_tracking?: bool, open_tracking?: bool, transactional?: bool, inline_css?: bool, perform_substitutions?: bool}|null,
      *     metadata?: array<string, string>|null,
+     *     headers?: array<string, string>|null,
      *     substitution_data?: array<string, mixed>|null,
      *     tag?: string|null,
      *     project_id?: int|null,
@@ -77,6 +79,7 @@ final readonly class SendEmailData implements Arrayable
             ) : null,
             options: isset($data['options']) ? EmailOptions::from($data['options']) : null,
             metadata: isset($data['metadata']) ? Metadata::from($data['metadata']) : null,
+            headers: isset($data['headers']) ? CustomHeaders::from($data['headers']) : null,
             substitutionData: isset($data['substitution_data']) ? SubstitutionData::from($data['substitution_data']) : null,
             tag: isset($data['tag']) ? new Tag($data['tag']) : null,
             projectId: $data['project_id'] ?? null,
@@ -135,6 +138,10 @@ final readonly class SendEmailData implements Arrayable
 
         if ($this->metadata !== null && ! $this->metadata->isEmpty()) {
             $data['metadata'] = $this->metadata->toArray();
+        }
+
+        if ($this->headers !== null && ! $this->headers->isEmpty()) {
+            $data['headers'] = $this->headers->toArray();
         }
 
         if ($this->substitutionData !== null && ! $this->substitutionData->isEmpty()) {

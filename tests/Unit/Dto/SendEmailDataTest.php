@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Lettr\Builders\EmailBuilder;
 use Lettr\Collections\EmailAddressCollection;
+use Lettr\Dto\Email\CustomHeaders;
 use Lettr\Dto\Email\SendEmailData;
 use Lettr\Exceptions\InvalidValueException;
 use Lettr\ValueObjects\EmailAddress;
@@ -118,8 +119,76 @@ test('toArray excludes null optional fields', function (): void {
         ->and($array)->not->toHaveKey('reply_to')
         ->and($array)->not->toHaveKey('attachments')
         ->and($array)->not->toHaveKey('metadata')
+        ->and($array)->not->toHaveKey('headers')
         ->and($array)->not->toHaveKey('substitution_data')
         ->and($array)->not->toHaveKey('tag');
+});
+
+test('can create SendEmailData with custom headers', function (): void {
+    $data = SendEmailData::from([
+        'from' => 'sender@example.com',
+        'to' => ['recipient@example.com'],
+        'subject' => 'Test Subject',
+        'text' => 'Plain text body',
+        'headers' => [
+            'List-Unsubscribe' => '<mailto:unsub@example.com>',
+            'X-Custom-ID' => 'abc-123',
+        ],
+    ]);
+
+    expect($data->headers)->toBeInstanceOf(CustomHeaders::class)
+        ->and($data->headers->get('List-Unsubscribe'))->toBe('<mailto:unsub@example.com>')
+        ->and($data->headers->get('X-Custom-ID'))->toBe('abc-123');
+});
+
+test('toArray includes headers when present', function (): void {
+    $data = SendEmailData::from([
+        'from' => 'sender@example.com',
+        'to' => ['recipient@example.com'],
+        'subject' => 'Test Subject',
+        'text' => 'Plain text body',
+        'headers' => [
+            'List-Unsubscribe' => '<mailto:unsub@example.com>',
+        ],
+    ]);
+
+    $array = $data->toArray();
+
+    expect($array['headers'])->toBe([
+        'List-Unsubscribe' => '<mailto:unsub@example.com>',
+    ]);
+});
+
+test('EmailBuilder supports headers via bulk set', function (): void {
+    $data = EmailBuilder::create()
+        ->from('sender@example.com')
+        ->to(['recipient@example.com'])
+        ->subject('Test')
+        ->text('body')
+        ->headers(['List-Unsubscribe' => '<mailto:unsub@example.com>', 'X-Custom-ID' => 'abc-123'])
+        ->build();
+
+    expect($data->headers)->toBeInstanceOf(CustomHeaders::class)
+        ->and($data->headers->all())->toBe([
+            'List-Unsubscribe' => '<mailto:unsub@example.com>',
+            'X-Custom-ID' => 'abc-123',
+        ]);
+});
+
+test('EmailBuilder supports adding headers individually', function (): void {
+    $data = EmailBuilder::create()
+        ->from('sender@example.com')
+        ->to(['recipient@example.com'])
+        ->subject('Test')
+        ->text('body')
+        ->addHeader('List-Unsubscribe', '<mailto:unsub@example.com>')
+        ->addHeader('X-Custom-ID', 'abc-123')
+        ->build();
+
+    expect($data->headers->all())->toBe([
+        'List-Unsubscribe' => '<mailto:unsub@example.com>',
+        'X-Custom-ID' => 'abc-123',
+    ]);
 });
 
 // EmailBuilder subject validation
