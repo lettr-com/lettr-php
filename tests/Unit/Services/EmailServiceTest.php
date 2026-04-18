@@ -3,65 +3,18 @@
 declare(strict_types=1);
 
 use Lettr\Builders\EmailBuilder;
-use Lettr\Contracts\TransporterContract;
+use Lettr\Dto\Email\ListEmailEventsFilter;
+use Lettr\Dto\Email\ListEmailsFilter;
 use Lettr\Dto\Email\SendEmailData;
 use Lettr\Dto\Email\SendEmailResponse;
+use Lettr\Dto\Email\TransmissionDetail;
 use Lettr\Dto\SendingQuota;
+use Lettr\Enums\TransmissionState;
+use Lettr\Responses\ListEmailEventsResponse;
+use Lettr\Responses\ListEmailsResponse;
 use Lettr\Services\EmailService;
 use Lettr\ValueObjects\EmailAddress;
-
-/**
- * Simple mock transporter for testing.
- */
-class MockTransporter implements TransporterContract
-{
-    public ?string $lastUri = null;
-
-    /** @var array<string, mixed>|null */
-    public ?array $lastData = null;
-
-    /** @var array<string, mixed>|null */
-    public ?array $lastQuery = null;
-
-    /** @var array<string, mixed> */
-    public array $response = [];
-
-    /** @var array<string, string|string[]> */
-    public array $responseHeaders = [];
-
-    public function post(string $uri, array $data): array
-    {
-        $this->lastUri = $uri;
-        $this->lastData = $data;
-
-        return $this->response;
-    }
-
-    public function get(string $uri): array
-    {
-        $this->lastUri = $uri;
-
-        return $this->response;
-    }
-
-    public function getWithQuery(string $uri, array $query = []): array
-    {
-        $this->lastUri = $uri;
-        $this->lastQuery = $query;
-
-        return $this->response;
-    }
-
-    public function delete(string $uri): void
-    {
-        $this->lastUri = $uri;
-    }
-
-    public function lastResponseHeaders(): array
-    {
-        return $this->responseHeaders;
-    }
-}
+use Tests\Support\MockTransporter;
 
 test('can create EmailService instance', function (): void {
     $transporter = new MockTransporter;
@@ -282,4 +235,210 @@ test('send returns null quota when no headers present', function (): void {
     $response = $service->send($data);
 
     expect($response->quota)->toBeNull();
+});
+
+test('list returns ListEmailsResponse with cursor pagination', function (): void {
+    $transporter = new MockTransporter;
+    $transporter->response = [
+        'events' => [
+            'data' => [
+                [
+                    'event_id' => 'evt_1',
+                    'type' => 'injection',
+                    'timestamp' => '2026-04-18T10:00:00+00:00',
+                    'request_id' => 'req_123',
+                    'subject' => 'Hello',
+                    'rcpt_to' => 'to@example.com',
+                ],
+            ],
+            'total_count' => 1,
+            'from' => '2026-04-08T00:00:00+00:00',
+            'to' => '2026-04-18T23:59:59+00:00',
+            'pagination' => [
+                'next_cursor' => 'cur_next',
+                'per_page' => 25,
+            ],
+        ],
+    ];
+
+    $service = new EmailService($transporter);
+    $response = $service->list();
+
+    expect($transporter->lastUri)->toBe('emails')
+        ->and($transporter->lastQuery)->toBe([])
+        ->and($response)->toBeInstanceOf(ListEmailsResponse::class)
+        ->and($response->emails)->toHaveCount(1)
+        ->and($response->emails[0]->eventId)->toBe('evt_1')
+        ->and($response->totalCount)->toBe(1)
+        ->and($response->pagination->nextCursor)->toBe('cur_next')
+        ->and($response->pagination->perPage)->toBe(25)
+        ->and($response->hasMore())->toBeTrue();
+});
+
+test('list forwards filter query params', function (): void {
+    $transporter = new MockTransporter;
+    $transporter->response = [
+        'events' => [
+            'data' => [],
+            'total_count' => 0,
+            'from' => '2026-04-01T00:00:00+00:00',
+            'to' => '2026-04-18T00:00:00+00:00',
+            'pagination' => ['next_cursor' => null, 'per_page' => 10],
+        ],
+    ];
+
+    $service = new EmailService($transporter);
+    $filter = ListEmailsFilter::create()
+        ->perPage(10)
+        ->recipients('foo@example.com')
+        ->from('2026-04-01T00:00:00Z')
+        ->to('2026-04-18T00:00:00Z');
+
+    $response = $service->list($filter);
+
+    expect($transporter->lastUri)->toBe('emails')
+        ->and($transporter->lastQuery)->toBe([
+            'per_page' => 10,
+            'recipients' => 'foo@example.com',
+            'from' => '2026-04-01T00:00:00Z',
+            'to' => '2026-04-18T00:00:00Z',
+        ])
+        ->and($response->hasMore())->toBeFalse();
+});
+
+test('events returns ListEmailEventsResponse', function (): void {
+    $transporter = new MockTransporter;
+    $transporter->response = [
+        'events' => [
+            'data' => [
+                [
+                    'event_id' => 'evt_click',
+                    'type' => 'click',
+                    'timestamp' => '2026-04-18T10:05:00+00:00',
+                    'request_id' => 'req_123',
+                    'rcpt_to' => 'to@example.com',
+                    'target_link_url' => 'https://example.com',
+                ],
+            ],
+            'total_count' => 1,
+            'from' => '2026-04-08T00:00:00+00:00',
+            'to' => '2026-04-18T23:59:59+00:00',
+            'pagination' => ['next_cursor' => null, 'per_page' => 25],
+        ],
+    ];
+
+    $service = new EmailService($transporter);
+    $filter = ListEmailEventsFilter::create()
+        ->events(['click', 'open'])
+        ->recipients(['to@example.com']);
+
+    $response = $service->events($filter);
+
+    expect($transporter->lastUri)->toBe('emails/events')
+        ->and($transporter->lastQuery['events'])->toBe('click,open')
+        ->and($transporter->lastQuery['recipients'])->toBe('to@example.com')
+        ->and($response)->toBeInstanceOf(ListEmailEventsResponse::class)
+        ->and($response->events)->toHaveCount(1)
+        ->and($response->events[0]->type)->toBe('click')
+        ->and($response->events[0]->targetLinkUrl)->toBe('https://example.com');
+});
+
+test('find hits GET /emails/{requestId} and returns TransmissionDetail', function (): void {
+    $transporter = new MockTransporter;
+    $transporter->response = [
+        'transmission_id' => 'req_abc',
+        'state' => 'delivered',
+        'scheduled_at' => null,
+        'from' => 'sender@example.com',
+        'from_name' => null,
+        'subject' => 'Welcome',
+        'recipients' => ['r@example.com'],
+        'num_recipients' => 1,
+        'events' => [],
+    ];
+
+    $service = new EmailService($transporter);
+    $detail = $service->find('req_abc');
+
+    expect($transporter->lastUri)->toBe('emails/req_abc')
+        ->and($detail)->toBeInstanceOf(TransmissionDetail::class)
+        ->and($detail->transmissionId)->toBe('req_abc')
+        ->and($detail->state)->toBe(TransmissionState::Delivered)
+        ->and($detail->numRecipients)->toBe(1);
+});
+
+test('find forwards from/to query params when provided', function (): void {
+    $transporter = new MockTransporter;
+    $transporter->response = [
+        'transmission_id' => 'req_abc',
+        'state' => 'scheduled',
+        'from' => 'sender@example.com',
+        'subject' => 'Hello',
+        'recipients' => [],
+        'num_recipients' => 0,
+        'events' => [],
+    ];
+
+    $service = new EmailService($transporter);
+    $service->find('req_abc', from: '2026-04-01', to: '2026-04-18');
+
+    expect($transporter->lastUri)->toBe('emails/req_abc')
+        ->and($transporter->lastQuery)->toBe([
+            'from' => '2026-04-01',
+            'to' => '2026-04-18',
+        ]);
+});
+
+test('schedule posts to /emails/scheduled', function (): void {
+    $transporter = new MockTransporter;
+    $transporter->response = ['request_id' => 'req_sched', 'accepted' => 1, 'rejected' => 0];
+
+    $service = new EmailService($transporter);
+    $data = SendEmailData::from([
+        'from' => 'sender@example.com',
+        'to' => ['recipient@example.com'],
+        'subject' => 'Later',
+        'text' => 'Body',
+        'scheduled_at' => '2026-04-19T12:00:00Z',
+    ]);
+
+    $response = $service->schedule($data);
+
+    expect($transporter->lastUri)->toBe('emails/scheduled')
+        ->and($transporter->lastData['scheduled_at'])->toBe('2026-04-19T12:00:00Z')
+        ->and((string) $response->requestId)->toBe('req_sched');
+});
+
+test('getScheduled returns TransmissionDetail', function (): void {
+    $transporter = new MockTransporter;
+    $transporter->response = [
+        'transmission_id' => 'tx_123',
+        'state' => 'scheduled',
+        'scheduled_at' => '2026-04-19T12:00:00+00:00',
+        'from' => 'sender@example.com',
+        'from_name' => 'Sender Name',
+        'subject' => 'Later',
+        'recipients' => ['r@example.com'],
+        'num_recipients' => 1,
+        'events' => [],
+    ];
+
+    $service = new EmailService($transporter);
+    $scheduled = $service->getScheduled('tx_123');
+
+    expect($transporter->lastUri)->toBe('emails/scheduled/tx_123')
+        ->and($scheduled)->toBeInstanceOf(TransmissionDetail::class)
+        ->and($scheduled->transmissionId)->toBe('tx_123')
+        ->and($scheduled->state)->toBe(TransmissionState::Scheduled)
+        ->and($scheduled->fromName)->toBe('Sender Name')
+        ->and($scheduled->numRecipients)->toBe(1);
+});
+
+test('cancelScheduled deletes /emails/scheduled/{id}', function (): void {
+    $transporter = new MockTransporter;
+    $service = new EmailService($transporter);
+
+    $service->cancelScheduled('tx_987');
+
+    expect($transporter->lastUri)->toBe('emails/scheduled/tx_987');
 });

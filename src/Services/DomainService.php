@@ -34,11 +34,12 @@ final class DomainService
          *     domains: array<int, array{
          *         domain: string,
          *         status: string,
+         *         status_label: string,
          *         can_send: bool,
-         *         dkim_status: string,
-         *         return_path_status: string,
+         *         cname_status?: string|null,
+         *         dkim_status?: string|null,
          *         created_at: string,
-         *         verified_at?: string|null,
+         *         updated_at: string,
          *     }>
          * } $response
          */
@@ -87,16 +88,18 @@ final class DomainService
          * @var array{
          *     domain: string,
          *     status: string,
+         *     status_label: string,
          *     can_send: bool,
-         *     dkim_status: string,
-         *     cname_status: string,
-         *     dmarc_status: string,
-         *     created_at: string,
-         *     verified_at?: string|null,
+         *     cname_status?: string|null,
+         *     dkim_status?: string|null,
+         *     dmarc_status?: string|null,
+         *     spf_status?: string|null,
+         *     is_primary_domain?: bool,
          *     tracking_domain?: string|null,
-         *     dns?: array{
-         *         dkim: array{selector: string, public_key: string, headers: string},
-         *     },
+         *     dns?: array{dkim: array{selector: string, public: string, headers: string, signing_domain?: string}}|null,
+         *     dns_provider?: array{provider: string, provider_label: string, nameservers: array<int, string>, error: string|null}|null,
+         *     created_at: string,
+         *     updated_at: string,
          * }  $response
          */
         $response = $this->transporter->get(self::DOMAINS_ENDPOINT.'/'.$domainName);
@@ -128,12 +131,8 @@ final class DomainService
          *     cname_status: string,
          *     dmarc_status: string,
          *     spf_status: string,
-         *     ownership_verified: bool|null,
          *     is_primary_domain: bool,
-         *     dkim_warning_level: int,
-         *     cname_warning_level: int,
-         *     dmarc_warning_level: int,
-         *     spf_warning_level: int,
+         *     ownership_verified?: string|null,
          *     dns?: array{
          *         dkim_record?: string|null,
          *         cname_record?: string|null,

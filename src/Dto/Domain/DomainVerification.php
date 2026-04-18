@@ -18,12 +18,8 @@ final readonly class DomainVerification
         public DnsStatus $cnameStatus,
         public DnsStatus $dmarcStatus,
         public DnsStatus $spfStatus,
-        public ?bool $ownershipVerified,
         public bool $isPrimaryDomain,
-        public int $dkimWarningLevel,
-        public int $cnameWarningLevel,
-        public int $dmarcWarningLevel,
-        public int $spfWarningLevel,
+        public ?string $ownershipVerified,
         public ?VerificationDns $dns,
         public ?DmarcVerification $dmarc,
         public ?SpfVerification $spf,
@@ -38,12 +34,8 @@ final readonly class DomainVerification
      *     cname_status: string,
      *     dmarc_status: string,
      *     spf_status: string,
-     *     ownership_verified: bool|null,
      *     is_primary_domain: bool,
-     *     dkim_warning_level: int,
-     *     cname_warning_level: int,
-     *     dmarc_warning_level: int,
-     *     spf_warning_level: int,
+     *     ownership_verified?: string|null,
      *     dns?: array{
      *         dkim_record?: string|null,
      *         cname_record?: string|null,
@@ -81,12 +73,8 @@ final readonly class DomainVerification
             cnameStatus: DnsStatus::from($data['cname_status']),
             dmarcStatus: DnsStatus::from($data['dmarc_status']),
             spfStatus: DnsStatus::from($data['spf_status']),
-            ownershipVerified: $data['ownership_verified'],
             isPrimaryDomain: $data['is_primary_domain'],
-            dkimWarningLevel: $data['dkim_warning_level'],
-            cnameWarningLevel: $data['cname_warning_level'],
-            dmarcWarningLevel: $data['dmarc_warning_level'],
-            spfWarningLevel: $data['spf_warning_level'],
+            ownershipVerified: $data['ownership_verified'] ?? null,
             dns: isset($data['dns']) ? VerificationDns::from($data['dns']) : null,
             dmarc: isset($data['dmarc']) ? DmarcVerification::from($data['dmarc']) : null,
             spf: isset($data['spf']) ? SpfVerification::from($data['spf']) : null,
@@ -98,9 +86,15 @@ final readonly class DomainVerification
      */
     public function isFullyVerified(): bool
     {
-        return $this->dkimStatus->isConfigured()
-            && $this->cnameStatus->isConfigured()
-            && $this->dmarcStatus->isConfigured()
+        if ($this->dkimStatus !== DnsStatus::Valid) {
+            return false;
+        }
+
+        if ($this->cnameStatus !== DnsStatus::Valid && $this->cnameStatus !== DnsStatus::NotApplicable) {
+            return false;
+        }
+
+        return $this->dmarcStatus->isConfigured()
             && $this->spfStatus->isConfigured();
     }
 

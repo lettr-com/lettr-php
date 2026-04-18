@@ -3,71 +3,21 @@
 declare(strict_types=1);
 
 use Lettr\Collections\ProjectCollection;
-use Lettr\Contracts\TransporterContract;
 use Lettr\Dto\Project\ListProjectsFilter;
 use Lettr\Dto\Project\Project;
 use Lettr\Responses\ListProjectsResponse;
 use Lettr\Services\ProjectService;
-
-/**
- * Simple mock transporter for testing.
- */
-class ProjectsMockTransporter implements TransporterContract
-{
-    public ?string $lastUri = null;
-
-    /** @var array<string, mixed>|null */
-    public ?array $lastData = null;
-
-    /** @var array<string, mixed>|null */
-    public ?array $lastQuery = null;
-
-    /** @var array<string, mixed> */
-    public array $response = [];
-
-    public function post(string $uri, array $data): array
-    {
-        $this->lastUri = $uri;
-        $this->lastData = $data;
-
-        return $this->response;
-    }
-
-    public function get(string $uri): array
-    {
-        $this->lastUri = $uri;
-
-        return $this->response;
-    }
-
-    public function getWithQuery(string $uri, array $query = []): array
-    {
-        $this->lastUri = $uri;
-        $this->lastQuery = $query;
-
-        return $this->response;
-    }
-
-    public function delete(string $uri): void
-    {
-        $this->lastUri = $uri;
-    }
-
-    public function lastResponseHeaders(): array
-    {
-        return [];
-    }
-}
+use Tests\Support\MockTransporter;
 
 test('can create ProjectService instance', function (): void {
-    $transporter = new ProjectsMockTransporter;
+    $transporter = new MockTransporter;
     $service = new ProjectService($transporter);
 
     expect($service)->toBeInstanceOf(ProjectService::class);
 });
 
 test('list method returns ListProjectsResponse', function (): void {
-    $transporter = new ProjectsMockTransporter;
+    $transporter = new MockTransporter;
     $transporter->response = [
         'projects' => [
             [
@@ -108,7 +58,7 @@ test('list method returns ListProjectsResponse', function (): void {
 });
 
 test('list method with filter', function (): void {
-    $transporter = new ProjectsMockTransporter;
+    $transporter = new MockTransporter;
     $transporter->response = [
         'projects' => [],
         'pagination' => [
@@ -207,7 +157,7 @@ test('ProjectCollection empty', function (): void {
 });
 
 test('ProjectPagination has next and previous page', function (): void {
-    $transporter = new ProjectsMockTransporter;
+    $transporter = new MockTransporter;
     $transporter->response = [
         'projects' => [],
         'pagination' => [

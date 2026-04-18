@@ -18,6 +18,9 @@ enum EventType: string
     case Open = 'open';
     case InitialOpen = 'initial_open';
     case Click = 'click';
+    case AmpOpen = 'amp_open';
+    case AmpInitialOpen = 'amp_initial_open';
+    case AmpClick = 'amp_click';
     case GenerationFailure = 'generation_failure';
     case GenerationRejection = 'generation_rejection';
     case SpamComplaint = 'spam_complaint';
@@ -39,6 +42,9 @@ enum EventType: string
             self::Open => 'Open',
             self::InitialOpen => 'Initial Open',
             self::Click => 'Click',
+            self::AmpOpen => 'AMP Open',
+            self::AmpInitialOpen => 'AMP Initial Open',
+            self::AmpClick => 'AMP Click',
             self::GenerationFailure => 'Generation Failure',
             self::GenerationRejection => 'Generation Rejection',
             self::SpamComplaint => 'Spam Complaint',
@@ -77,6 +83,9 @@ enum EventType: string
             self::Open,
             self::InitialOpen,
             self::Click,
+            self::AmpOpen,
+            self::AmpInitialOpen,
+            self::AmpClick,
         ], true);
     }
 

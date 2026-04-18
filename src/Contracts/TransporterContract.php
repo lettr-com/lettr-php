@@ -38,6 +38,16 @@ interface TransporterContract
     public function getWithQuery(string $uri, array $query = []): array;
 
     /**
+     * Send a PUT request to the API.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     *
+     * @throws LettrException
+     */
+    public function put(string $uri, array $data): array;
+
+    /**
      * Send a DELETE request to the API.
      *
      * @throws LettrException

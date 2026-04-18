@@ -17,11 +17,12 @@ final readonly class Domain
     public function __construct(
         public DomainName $domain,
         public DomainStatus $status,
+        public string $statusLabel,
         public bool $canSend,
-        public DnsStatus $dkimStatus,
-        public DnsStatus $returnPathStatus,
+        public ?DnsStatus $cnameStatus,
+        public ?DnsStatus $dkimStatus,
         public Timestamp $createdAt,
-        public ?Timestamp $verifiedAt = null,
+        public Timestamp $updatedAt,
     ) {}
 
     /**
@@ -30,11 +31,12 @@ final readonly class Domain
      * @param  array{
      *     domain: string,
      *     status: string,
+     *     status_label: string,
      *     can_send: bool,
-     *     dkim_status?: string,
-     *     return_path_status?: string,
+     *     cname_status?: string|null,
+     *     dkim_status?: string|null,
      *     created_at: string,
-     *     verified_at?: string|null,
+     *     updated_at: string,
      * }  $data
      */
     public static function from(array $data): self
@@ -42,22 +44,23 @@ final readonly class Domain
         return new self(
             domain: new DomainName($data['domain']),
             status: DomainStatus::from($data['status']),
+            statusLabel: $data['status_label'],
             canSend: $data['can_send'],
-            dkimStatus: isset($data['dkim_status']) ? DnsStatus::from($data['dkim_status']) : DnsStatus::Unverified,
-            returnPathStatus: isset($data['return_path_status']) ? DnsStatus::from($data['return_path_status']) : DnsStatus::Unverified,
+            cnameStatus: isset($data['cname_status']) ? DnsStatus::from($data['cname_status']) : null,
+            dkimStatus: isset($data['dkim_status']) ? DnsStatus::from($data['dkim_status']) : null,
             createdAt: Timestamp::fromString($data['created_at']),
-            verifiedAt: isset($data['verified_at']) ? Timestamp::fromString($data['verified_at']) : null,
+            updatedAt: Timestamp::fromString($data['updated_at']),
         );
     }
 
     /**
-     * Check if the domain is fully verified.
+     * Check if the domain is fully verified for sending.
      */
     public function isVerified(): bool
     {
         return $this->status === DomainStatus::Approved
             && $this->dkimStatus === DnsStatus::Valid
-            && $this->returnPathStatus === DnsStatus::Valid;
+            && ($this->cnameStatus === DnsStatus::Valid || $this->cnameStatus === DnsStatus::NotApplicable);
     }
 
     /**
@@ -65,7 +68,11 @@ final readonly class Domain
      */
     public function needsDnsConfiguration(): bool
     {
-        return $this->dkimStatus !== DnsStatus::Valid
-            || $this->returnPathStatus !== DnsStatus::Valid;
+        if ($this->dkimStatus !== DnsStatus::Valid) {
+            return true;
+        }
+
+        return $this->cnameStatus !== DnsStatus::Valid
+            && $this->cnameStatus !== DnsStatus::NotApplicable;
     }
 }

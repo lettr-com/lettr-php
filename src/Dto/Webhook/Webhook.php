@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Lettr\Dto\Webhook;
 
-use Lettr\Collections\EventTypeCollection;
-use Lettr\Enums\EventType;
+use Lettr\Collections\WebhookEventTypeCollection;
 use Lettr\Enums\WebhookAuthType;
+use Lettr\Enums\WebhookEventType;
 use Lettr\Enums\WebhookStatus;
 use Lettr\ValueObjects\Timestamp;
 use Lettr\ValueObjects\WebhookId;
@@ -22,12 +22,11 @@ final readonly class Webhook
         public string $url,
         public bool $enabled,
         public WebhookAuthType $authType,
-        public EventTypeCollection $eventTypes,
-        public ?Timestamp $createdAt = null,
+        public bool $hasAuthCredentials,
+        public WebhookEventTypeCollection $eventTypes,
         public ?WebhookStatus $lastStatus = null,
-        public ?Timestamp $lastTriggeredAt = null,
-        public ?string $lastError = null,
-        public ?Timestamp $updatedAt = null,
+        public ?Timestamp $lastSuccessfulAt = null,
+        public ?Timestamp $lastFailureAt = null,
     ) {}
 
     /**
@@ -39,12 +38,11 @@ final readonly class Webhook
      *     url: string,
      *     enabled: bool,
      *     auth_type: string,
-     *     event_types: array<string>,
+     *     has_auth_credentials: bool,
+     *     event_types: array<string>|null,
      *     last_status?: string|null,
-     *     last_triggered_at?: string|null,
-     *     last_error?: string|null,
-     *     created_at?: string|null,
-     *     updated_at?: string|null,
+     *     last_successful_at?: string|null,
+     *     last_failure_at?: string|null,
      * }  $data
      */
     public static function from(array $data): self
@@ -55,14 +53,13 @@ final readonly class Webhook
             url: $data['url'],
             enabled: $data['enabled'],
             authType: WebhookAuthType::from($data['auth_type']),
-            eventTypes: EventTypeCollection::from(
-                array_map(static fn (string $type): EventType => EventType::from($type), $data['event_types'])
-            ),
-            createdAt: isset($data['created_at']) ? Timestamp::fromString($data['created_at']) : null,
+            hasAuthCredentials: $data['has_auth_credentials'],
+            eventTypes: $data['event_types'] !== null
+                ? WebhookEventTypeCollection::from($data['event_types'])
+                : WebhookEventTypeCollection::empty(),
             lastStatus: isset($data['last_status']) ? WebhookStatus::from($data['last_status']) : null,
-            lastTriggeredAt: isset($data['last_triggered_at']) ? Timestamp::fromString($data['last_triggered_at']) : null,
-            lastError: $data['last_error'] ?? null,
-            updatedAt: isset($data['updated_at']) ? Timestamp::fromString($data['updated_at']) : null,
+            lastSuccessfulAt: isset($data['last_successful_at']) ? Timestamp::fromString($data['last_successful_at']) : null,
+            lastFailureAt: isset($data['last_failure_at']) ? Timestamp::fromString($data['last_failure_at']) : null,
         );
     }
 
@@ -86,7 +83,7 @@ final readonly class Webhook
     /**
      * Check if the webhook listens to a specific event type.
      */
-    public function listensTo(EventType $type): bool
+    public function listensTo(WebhookEventType $type): bool
     {
         return $this->eventTypes->contains($type);
     }

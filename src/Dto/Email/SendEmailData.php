@@ -34,6 +34,8 @@ final readonly class SendEmailData implements Arrayable
         public ?int $projectId = null,
         public ?string $templateSlug = null,
         public ?int $templateVersion = null,
+        public ?string $ampHtml = null,
+        public ?string $scheduledAt = null,
     ) {}
 
     /**
@@ -48,6 +50,7 @@ final readonly class SendEmailData implements Arrayable
      *     cc?: array<string>|null,
      *     bcc?: array<string>|null,
      *     reply_to?: string|null,
+     *     reply_to_name?: string|null,
      *     attachments?: array<array{name: string, type: string, data: string}>|null,
      *     options?: array{click_tracking?: bool, open_tracking?: bool, transactional?: bool, inline_css?: bool, perform_substitutions?: bool}|null,
      *     metadata?: array<string, string>|null,
@@ -57,6 +60,8 @@ final readonly class SendEmailData implements Arrayable
      *     project_id?: int|null,
      *     template_slug?: string|null,
      *     template_version?: int|null,
+     *     amp_html?: string|null,
+     *     scheduled_at?: string|null,
      * }  $data
      */
     public static function from(array $data): self
@@ -73,7 +78,7 @@ final readonly class SendEmailData implements Arrayable
             html: $data['html'] ?? null,
             cc: isset($data['cc']) ? EmailAddressCollection::from($data['cc']) : null,
             bcc: isset($data['bcc']) ? EmailAddressCollection::from($data['bcc']) : null,
-            replyTo: isset($data['reply_to']) ? new EmailAddress($data['reply_to']) : null,
+            replyTo: isset($data['reply_to']) ? new EmailAddress($data['reply_to'], $data['reply_to_name'] ?? null) : null,
             attachments: isset($data['attachments']) ? AttachmentCollection::from(
                 array_map(static fn (array $a): Attachment => Attachment::from($a), $data['attachments'])
             ) : null,
@@ -85,6 +90,8 @@ final readonly class SendEmailData implements Arrayable
             projectId: $data['project_id'] ?? null,
             templateSlug: $data['template_slug'] ?? null,
             templateVersion: $data['template_version'] ?? null,
+            ampHtml: $data['amp_html'] ?? null,
+            scheduledAt: $data['scheduled_at'] ?? null,
         );
     }
 
@@ -126,6 +133,10 @@ final readonly class SendEmailData implements Arrayable
 
         if ($this->replyTo !== null) {
             $data['reply_to'] = $this->replyTo->address;
+
+            if ($this->replyTo->name !== null) {
+                $data['reply_to_name'] = $this->replyTo->name;
+            }
         }
 
         if ($this->attachments !== null && ! $this->attachments->isEmpty()) {
@@ -162,6 +173,14 @@ final readonly class SendEmailData implements Arrayable
 
         if ($this->templateVersion !== null) {
             $data['template_version'] = $this->templateVersion;
+        }
+
+        if ($this->ampHtml !== null) {
+            $data['amp_html'] = $this->ampHtml;
+        }
+
+        if ($this->scheduledAt !== null) {
+            $data['scheduled_at'] = $this->scheduledAt;
         }
 
         return $data;
