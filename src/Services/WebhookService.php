@@ -6,6 +6,8 @@ namespace Lettr\Services;
 
 use Lettr\Collections\WebhookCollection;
 use Lettr\Contracts\TransporterContract;
+use Lettr\Dto\Webhook\CreateWebhookData;
+use Lettr\Dto\Webhook\UpdateWebhookData;
 use Lettr\Dto\Webhook\Webhook;
 use Lettr\ValueObjects\WebhookId;
 
@@ -33,12 +35,11 @@ final class WebhookService
          *         url: string,
          *         enabled: bool,
          *         auth_type: string,
-         *         event_types: array<string>,
+         *         has_auth_credentials: bool,
+         *         event_types: array<string>|null,
          *         last_status?: string|null,
-         *         last_triggered_at?: string|null,
-         *         last_error?: string|null,
-         *         created_at: string,
-         *         updated_at?: string|null,
+         *         last_successful_at?: string|null,
+         *         last_failure_at?: string|null,
          *     }>
          * } $response
          */
@@ -66,16 +67,75 @@ final class WebhookService
          *     url: string,
          *     enabled: bool,
          *     auth_type: string,
-         *     event_types: array<string>,
+         *     has_auth_credentials: bool,
+         *     event_types: array<string>|null,
          *     last_status?: string|null,
-         *     last_triggered_at?: string|null,
-         *     last_error?: string|null,
-         *     created_at: string,
-         *     updated_at?: string|null,
+         *     last_successful_at?: string|null,
+         *     last_failure_at?: string|null,
          * } $response
          */
         $response = $this->transporter->get(self::WEBHOOKS_ENDPOINT.'/'.$id);
 
         return Webhook::from($response);
+    }
+
+    /**
+     * Create a new webhook.
+     */
+    public function create(CreateWebhookData $data): Webhook
+    {
+        /**
+         * @var array{
+         *     id: string,
+         *     name: string,
+         *     url: string,
+         *     enabled: bool,
+         *     auth_type: string,
+         *     has_auth_credentials: bool,
+         *     event_types: array<string>|null,
+         *     last_status?: string|null,
+         *     last_successful_at?: string|null,
+         *     last_failure_at?: string|null,
+         * } $response
+         */
+        $response = $this->transporter->post(self::WEBHOOKS_ENDPOINT, $data->toArray());
+
+        return Webhook::from($response);
+    }
+
+    /**
+     * Update an existing webhook.
+     */
+    public function update(string|WebhookId $webhookId, UpdateWebhookData $data): Webhook
+    {
+        $id = $webhookId instanceof WebhookId ? (string) $webhookId : $webhookId;
+
+        /**
+         * @var array{
+         *     id: string,
+         *     name: string,
+         *     url: string,
+         *     enabled: bool,
+         *     auth_type: string,
+         *     has_auth_credentials: bool,
+         *     event_types: array<string>|null,
+         *     last_status?: string|null,
+         *     last_successful_at?: string|null,
+         *     last_failure_at?: string|null,
+         * } $response
+         */
+        $response = $this->transporter->put(self::WEBHOOKS_ENDPOINT.'/'.$id, $data->toArray());
+
+        return Webhook::from($response);
+    }
+
+    /**
+     * Delete a webhook.
+     */
+    public function delete(string|WebhookId $webhookId): void
+    {
+        $id = $webhookId instanceof WebhookId ? (string) $webhookId : $webhookId;
+
+        $this->transporter->delete(self::WEBHOOKS_ENDPOINT.'/'.$id);
     }
 }

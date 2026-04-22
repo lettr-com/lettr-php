@@ -71,6 +71,14 @@ final class Client implements TransporterContract
     /**
      * {@inheritDoc}
      */
+    public function put(string $uri, array $data): array
+    {
+        return $this->request('PUT', $uri, $data);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
     public function delete(string $uri): void
     {
         $this->request('DELETE', $uri);

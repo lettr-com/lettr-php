@@ -64,6 +64,10 @@ final class EmailBuilder
 
     private ?int $templateVersion = null;
 
+    private ?string $ampHtml = null;
+
+    private ?string $scheduledAt = null;
+
     public function __construct() {}
 
     /**
@@ -385,6 +389,26 @@ final class EmailBuilder
     }
 
     /**
+     * Set AMP HTML content.
+     */
+    public function ampHtml(string $html): self
+    {
+        $this->ampHtml = $html;
+
+        return $this;
+    }
+
+    /**
+     * Set scheduled delivery time (ISO 8601 format).
+     */
+    public function scheduledAt(string $datetime): self
+    {
+        $this->scheduledAt = $datetime;
+
+        return $this;
+    }
+
+    /**
      * Use a template by slug and optionally version.
      */
     public function useTemplate(string $slug, ?int $version = null, ?int $projectId = null): self
@@ -452,6 +476,8 @@ final class EmailBuilder
             projectId: $this->projectId,
             templateSlug: $this->templateSlug,
             templateVersion: $this->templateVersion,
+            ampHtml: $this->ampHtml,
+            scheduledAt: $this->scheduledAt,
         );
     }
 

@@ -9,7 +9,10 @@ use Lettr\Dto\Template\CreatedTemplate;
 use Lettr\Dto\Template\CreateTemplateData;
 use Lettr\Dto\Template\ListTemplatesFilter;
 use Lettr\Dto\Template\TemplateDetail;
+use Lettr\Dto\Template\UpdatedTemplate;
+use Lettr\Dto\Template\UpdateTemplateData;
 use Lettr\Responses\GetMergeTagsResponse;
+use Lettr\Responses\GetTemplateHtmlResponse;
 use Lettr\Responses\ListTemplatesResponse;
 
 /**
@@ -113,6 +116,49 @@ final class TemplateService
         }
 
         $this->transporter->delete($endpoint);
+    }
+
+    /**
+     * Update a template by slug.
+     */
+    public function update(string $slug, UpdateTemplateData $data): UpdatedTemplate
+    {
+        /**
+         * @var array{
+         *     id: int,
+         *     name: string,
+         *     slug: string,
+         *     project_id: int,
+         *     folder_id: int,
+         *     active_version: int,
+         *     merge_tags: array<int, array{key: string, required: bool, children?: array<int, array{key: string, type?: string|null}>}>,
+         *     created_at: string,
+         *     updated_at: string,
+         * } $response
+         */
+        $response = $this->transporter->put(self::TEMPLATES_ENDPOINT.'/'.$slug, $data->toArray());
+
+        return UpdatedTemplate::from($response);
+    }
+
+    /**
+     * Get the rendered HTML for a template.
+     */
+    public function getHtml(int $projectId, string $slug): GetTemplateHtmlResponse
+    {
+        /**
+         * @var array{
+         *     html: string,
+         *     merge_tags: array<int, array{key: string, required: bool, type?: string|null, children?: array<int, array{key: string, type?: string|null}>|null}>,
+         *     subject?: string|null,
+         * } $response
+         */
+        $response = $this->transporter->getWithQuery(self::TEMPLATES_ENDPOINT.'/html', [
+            'project_id' => $projectId,
+            'slug' => $slug,
+        ]);
+
+        return GetTemplateHtmlResponse::from($response);
     }
 
     /**

@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use Lettr\Collections\TemplateCollection;
-use Lettr\Contracts\TransporterContract;
 use Lettr\Dto\Template\CreatedTemplate;
 use Lettr\Dto\Template\CreateTemplateData;
 use Lettr\Dto\Template\ListTemplatesFilter;
@@ -11,69 +10,23 @@ use Lettr\Dto\Template\MergeTag;
 use Lettr\Dto\Template\MergeTagChild;
 use Lettr\Dto\Template\Template;
 use Lettr\Dto\Template\TemplateDetail;
+use Lettr\Dto\Template\UpdatedTemplate;
+use Lettr\Dto\Template\UpdateTemplateData;
 use Lettr\Responses\GetMergeTagsResponse;
+use Lettr\Responses\GetTemplateHtmlResponse;
 use Lettr\Responses\ListTemplatesResponse;
 use Lettr\Services\TemplateService;
-
-/**
- * Simple mock transporter for testing.
- */
-class TemplatesMockTransporter implements TransporterContract
-{
-    public ?string $lastUri = null;
-
-    /** @var array<string, mixed>|null */
-    public ?array $lastData = null;
-
-    /** @var array<string, mixed>|null */
-    public ?array $lastQuery = null;
-
-    /** @var array<string, mixed> */
-    public array $response = [];
-
-    public function post(string $uri, array $data): array
-    {
-        $this->lastUri = $uri;
-        $this->lastData = $data;
-
-        return $this->response;
-    }
-
-    public function get(string $uri): array
-    {
-        $this->lastUri = $uri;
-
-        return $this->response;
-    }
-
-    public function getWithQuery(string $uri, array $query = []): array
-    {
-        $this->lastUri = $uri;
-        $this->lastQuery = $query;
-
-        return $this->response;
-    }
-
-    public function delete(string $uri): void
-    {
-        $this->lastUri = $uri;
-    }
-
-    public function lastResponseHeaders(): array
-    {
-        return [];
-    }
-}
+use Tests\Support\MockTransporter;
 
 test('can create TemplateService instance', function (): void {
-    $transporter = new TemplatesMockTransporter;
+    $transporter = new MockTransporter;
     $service = new TemplateService($transporter);
 
     expect($service)->toBeInstanceOf(TemplateService::class);
 });
 
 test('list method returns ListTemplatesResponse', function (): void {
-    $transporter = new TemplatesMockTransporter;
+    $transporter = new MockTransporter;
     $transporter->response = [
         'templates' => [
             [
@@ -116,7 +69,7 @@ test('list method returns ListTemplatesResponse', function (): void {
 });
 
 test('list method with filter', function (): void {
-    $transporter = new TemplatesMockTransporter;
+    $transporter = new MockTransporter;
     $transporter->response = [
         'templates' => [],
         'pagination' => [
@@ -140,7 +93,7 @@ test('list method with filter', function (): void {
 });
 
 test('get method returns TemplateDetail', function (): void {
-    $transporter = new TemplatesMockTransporter;
+    $transporter = new MockTransporter;
     $transporter->response = [
         'id' => 1,
         'name' => 'Welcome Email',
@@ -173,7 +126,7 @@ test('get method returns TemplateDetail', function (): void {
 });
 
 test('get method with project ID', function (): void {
-    $transporter = new TemplatesMockTransporter;
+    $transporter = new MockTransporter;
     $transporter->response = [
         'id' => 1,
         'name' => 'Welcome Email',
@@ -280,7 +233,7 @@ test('TemplateCollection empty', function (): void {
 });
 
 test('TemplatePagination has next and previous page', function (): void {
-    $transporter = new TemplatesMockTransporter;
+    $transporter = new MockTransporter;
     $transporter->response = [
         'templates' => [],
         'pagination' => [
@@ -302,7 +255,7 @@ test('TemplatePagination has next and previous page', function (): void {
 });
 
 test('create method creates template and returns CreatedTemplate', function (): void {
-    $transporter = new TemplatesMockTransporter;
+    $transporter = new MockTransporter;
     $transporter->response = [
         'id' => 10,
         'name' => 'New Template',
@@ -319,7 +272,6 @@ test('create method creates template and returns CreatedTemplate', function (): 
     $service = new TemplateService($transporter);
     $data = new CreateTemplateData(
         name: 'New Template',
-        slug: 'new-template',
         projectId: 123,
         folderId: 5,
         html: '<html><body>Hello</body></html>',
@@ -330,7 +282,6 @@ test('create method creates template and returns CreatedTemplate', function (): 
     expect($transporter->lastUri)->toBe('templates')
         ->and($transporter->lastData)->toBe([
             'name' => 'New Template',
-            'slug' => 'new-template',
             'project_id' => 123,
             'folder_id' => 5,
             'html' => '<html><body>Hello</body></html>',
@@ -346,7 +297,7 @@ test('create method creates template and returns CreatedTemplate', function (): 
 });
 
 test('create method with minimal data', function (): void {
-    $transporter = new TemplatesMockTransporter;
+    $transporter = new MockTransporter;
     $transporter->response = [
         'id' => 11,
         'name' => 'Minimal Template',
@@ -370,7 +321,7 @@ test('create method with minimal data', function (): void {
 });
 
 test('delete method calls correct endpoint', function (): void {
-    $transporter = new TemplatesMockTransporter;
+    $transporter = new MockTransporter;
     $service = new TemplateService($transporter);
 
     $service->delete('my-template');
@@ -379,7 +330,7 @@ test('delete method calls correct endpoint', function (): void {
 });
 
 test('delete method with project ID', function (): void {
-    $transporter = new TemplatesMockTransporter;
+    $transporter = new MockTransporter;
     $service = new TemplateService($transporter);
 
     $service->delete('my-template', projectId: 456);
@@ -400,7 +351,7 @@ test('CreateTemplateData toArray only includes non-null values', function (): vo
 });
 
 test('getMergeTags returns GetMergeTagsResponse', function (): void {
-    $transporter = new TemplatesMockTransporter;
+    $transporter = new MockTransporter;
     $transporter->response = [
         'project_id' => 123,
         'template_slug' => 'welcome-email',
@@ -447,7 +398,7 @@ test('getMergeTags returns GetMergeTagsResponse', function (): void {
 });
 
 test('getMergeTags with project ID and version', function (): void {
-    $transporter = new TemplatesMockTransporter;
+    $transporter = new MockTransporter;
     $transporter->response = [
         'project_id' => 456,
         'template_slug' => 'newsletter',
@@ -469,19 +420,19 @@ test('MergeTag from array', function (): void {
     $tag = MergeTag::from([
         'key' => 'test_key',
         'required' => true,
-        'type' => 'string',
+        'type' => 'text',
         'children' => [
-            ['key' => 'child1', 'type' => 'integer'],
+            ['key' => 'child1', 'type' => 'number'],
         ],
     ]);
 
     expect($tag->key)->toBe('test_key')
         ->and($tag->required)->toBeTrue()
-        ->and($tag->type)->toBe('string')
+        ->and($tag->type)->toBe('text')
         ->and($tag->children)->toHaveCount(1)
         ->and($tag->children[0])->toBeInstanceOf(MergeTagChild::class)
         ->and($tag->children[0]->key)->toBe('child1')
-        ->and($tag->children[0]->type)->toBe('integer');
+        ->and($tag->children[0]->type)->toBe('number');
 });
 
 test('MergeTag from array with minimal data', function (): void {
@@ -494,4 +445,64 @@ test('MergeTag from array with minimal data', function (): void {
         ->and($tag->required)->toBeFalse()
         ->and($tag->type)->toBeNull()
         ->and($tag->children)->toBeNull();
+});
+
+test('update PUT templates/{slug} and returns UpdatedTemplate', function (): void {
+    $transporter = new MockTransporter;
+    $transporter->response = [
+        'id' => 10,
+        'name' => 'Renamed Template',
+        'slug' => 'welcome-email',
+        'project_id' => 123,
+        'folder_id' => 5,
+        'active_version' => 4,
+        'merge_tags' => [
+            ['key' => 'first_name', 'required' => true, 'type' => 'text'],
+        ],
+        'created_at' => '2024-01-01T12:00:00+00:00',
+        'updated_at' => '2026-04-18T12:00:00+00:00',
+    ];
+
+    $service = new TemplateService($transporter);
+    $data = new UpdateTemplateData(
+        name: 'Renamed Template',
+        html: '<html><body>New</body></html>',
+    );
+    $template = $service->update('welcome-email', $data);
+
+    expect($transporter->lastUri)->toBe('templates/welcome-email')
+        ->and($transporter->lastData)->toBe([
+            'name' => 'Renamed Template',
+            'html' => '<html><body>New</body></html>',
+        ])
+        ->and($template)->toBeInstanceOf(UpdatedTemplate::class)
+        ->and($template->name)->toBe('Renamed Template')
+        ->and($template->activeVersion)->toBe(4)
+        ->and($template->mergeTags[0]->key)->toBe('first_name')
+        ->and($template->mergeTags[0]->type)->toBe('text');
+});
+
+test('getHtml GET templates/html with project and slug', function (): void {
+    $transporter = new MockTransporter;
+    $transporter->response = [
+        'html' => '<html><body>Hello {{FIRST_NAME}}</body></html>',
+        'subject' => 'Hello there',
+        'merge_tags' => [
+            ['key' => 'FIRST_NAME', 'required' => true, 'type' => 'text'],
+        ],
+    ];
+
+    $service = new TemplateService($transporter);
+    $response = $service->getHtml(projectId: 123, slug: 'welcome-email');
+
+    expect($transporter->lastUri)->toBe('templates/html')
+        ->and($transporter->lastQuery)->toBe([
+            'project_id' => 123,
+            'slug' => 'welcome-email',
+        ])
+        ->and($response)->toBeInstanceOf(GetTemplateHtmlResponse::class)
+        ->and($response->html)->toContain('{{FIRST_NAME}}')
+        ->and($response->subject)->toBe('Hello there')
+        ->and($response->mergeTags[0]->key)->toBe('FIRST_NAME')
+        ->and($response->mergeTags[0]->type)->toBe('text');
 });

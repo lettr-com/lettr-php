@@ -7,14 +7,13 @@ namespace Lettr\Dto\Template;
 use Lettr\Contracts\Arrayable;
 
 /**
- * Data Transfer Object for creating a template.
+ * Data Transfer Object for updating a template.
  */
-final readonly class CreateTemplateData implements Arrayable
+final readonly class UpdateTemplateData implements Arrayable
 {
     public function __construct(
-        public string $name,
         public ?int $projectId = null,
-        public ?int $folderId = null,
+        public ?string $name = null,
         public ?string $html = null,
         public ?string $json = null,
     ) {}
@@ -26,16 +25,14 @@ final readonly class CreateTemplateData implements Arrayable
      */
     public function toArray(): array
     {
-        $data = [
-            'name' => $this->name,
-        ];
+        $data = [];
 
         if ($this->projectId !== null) {
             $data['project_id'] = $this->projectId;
         }
 
-        if ($this->folderId !== null) {
-            $data['folder_id'] = $this->folderId;
+        if ($this->name !== null) {
+            $data['name'] = $this->name;
         }
 
         if ($this->html !== null) {

@@ -4,6 +4,45 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.4.0] - 2026-04-18
+
+### Added
+- **Email list & events endpoints**
+  - `EmailService::list(?ListEmailsFilter)` for `GET /emails` with cursor pagination
+  - `EmailService::events(?ListEmailEventsFilter)` for `GET /emails/events`
+  - `EmailService::find(string|RequestId)` for `GET /emails/{requestId}`
+  - New DTOs: `ListEmailsFilter`, `ListEmailEventsFilter`, `SentEmail`, `EmailEvent`, `CursorPagination`
+  - New responses: `ListEmailsResponse`, `ListEmailEventsResponse`
+- **Scheduled emails**
+  - `EmailService::schedule(SendEmailData|EmailBuilder)` for `POST /emails/scheduled`
+  - `EmailService::getScheduled(string)` and `EmailService::cancelScheduled(string)`
+  - `TransmissionDetail` DTO (also used by `find()` — per spec, scheduled and detail endpoints share the same shape) and `TransmissionState` enum (`submitted`, `generating`, `scheduled`, `delivered`, `bounced`, `failed`, `unknown`)
+  - `EmailBuilder::scheduledAt()` and `ampHtml()` helpers
+- **Template management**
+  - `TemplateService::update(string, UpdateTemplateData)` for `PUT /templates/{slug}`
+  - `TemplateService::getHtml(int, string)` for `GET /templates/html`
+  - `TemplateService::getMergeTags(string, ?int, ?int)` for `GET /templates/{slug}/merge-tags`
+  - New DTOs: `UpdateTemplateData`, `UpdatedTemplate`, `GetTemplateHtmlResponse`
+  - `MergeTag` gains an optional `name` field
+- **Webhook CRUD**
+  - `WebhookService` now supports `list`, `get`, `create`, `update`, `delete`
+  - New DTOs: `CreateWebhookData`, `UpdateWebhookData`
+  - New enum `WebhookEventsMode` (`all`, `selected`)
+  - New enum `WebhookEventType` with 22 namespaced cases (`message.*`, `engagement.*`, `generation.*`, `unsubscribe.*`, `relay.*`) — distinct from `EventType` used for email-event filtering
+  - New `WebhookEventTypeCollection`
+- **Domain list & detail**
+  - `Domain` DTO gains `statusLabel`, `updatedAt`, and `cnameStatus`; drops `returnPathStatus` (was always `Unverified` — never returned by API) and `verifiedAt` (never returned)
+  - `DomainDetail` gains `statusLabel`, `updatedAt`, `spfStatus`, `isPrimaryDomain`, and `dnsProvider` (new `DnsProvider` DTO with `provider`, `providerLabel`, `nameservers`, `error`); drops `verifiedAt`
+- **Domain verification** — `DomainVerification` DTO now surfaces `dmarc_status`, `spf_status`, `is_primary_domain`, and the `DmarcVerification` / `SpfVerification` sub-objects. Drops the undocumented `dkim/cname/dmarc/spf_warning_level` fields (API never emitted them — `from()` previously threw `Undefined array key` on real responses). `ownershipVerified` retyped from `?bool` to `?string` to match the actual response ("true" quoted)
+- **Email events** — `EmailEvent` DTO gains every `CommonEventProperties` field (`campaign_id`, `template_id`, `template_version`, `ip_pool`, `msg_from`, `rcpt_type`, `rcpt_tags`, `amp_enabled`, `delv_method`, `recv_method`, `routing_domain`, `scheduled_time`, `ab_test_id`, `ab_test_version`, `rcpt_meta`) plus per-event-type extras (`outbound_tls`, `device_token`, `fbtype`, `report_by`, `report_to`, `remote_addr`, `initial_pixel`). New `UserAgentParsed` and `GeoIp` DTOs replace raw arrays
+- **Auth** — `HealthService::authCheck()` against `GET /auth/check`
+- **Transport** — `TransporterContract::getWithQuery()` for query-string GETs
+- **Error codes** — `ErrorCode` enum expanded with `unconfigured_domain`, `send_error`, `retrieval_error`, `transmission_failed`, `resource_already_exists`, `not_found`, `template_not_found`, `schedule_cancellation_failed`
+- **AMP events** — `EventType` enum now includes `amp_click`, `amp_open`, `amp_initial_open`
+
+### Fixed
+- `Webhook::from()` previously parsed `event_types` through the unprefixed `EventType` enum, which would throw on any real webhook response (spec uses `message.delivery` etc.). Webhooks now use `WebhookEventType`.
+
 ## [1.3.0] - 2026-03-21
 
 ### Added

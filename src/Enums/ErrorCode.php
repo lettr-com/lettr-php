@@ -11,10 +11,14 @@ enum ErrorCode: string
 {
     case ValidationError = 'validation_error';
     case InvalidDomain = 'invalid_domain';
+    case UnconfiguredDomain = 'unconfigured_domain';
     case DomainNotFound = 'domain_not_found';
     case DomainNotVerified = 'domain_not_verified';
     case DomainAlreadyExists = 'domain_already_exists';
+    case ResourceAlreadyExists = 'resource_already_exists';
     case WebhookNotFound = 'webhook_not_found';
+    case TemplateNotFound = 'template_not_found';
+    case NotFound = 'not_found';
     case InvalidApiKey = 'invalid_api_key';
     case RateLimitExceeded = 'rate_limit_exceeded';
     case QuotaExceeded = 'quota_exceeded';
@@ -24,6 +28,10 @@ enum ErrorCode: string
     case MessageTooLarge = 'message_too_large';
     case AttachmentTooLarge = 'attachment_too_large';
     case InsufficientScope = 'insufficient_scope';
+    case SendError = 'send_error';
+    case RetrievalError = 'retrieval_error';
+    case TransmissionFailed = 'transmission_failed';
+    case ScheduleCancellationFailed = 'schedule_cancellation_failed';
 
     /**
      * Get a human-readable message for the error code.
@@ -33,10 +41,14 @@ enum ErrorCode: string
         return match ($this) {
             self::ValidationError => 'The request contains invalid data.',
             self::InvalidDomain => 'The specified domain is invalid.',
+            self::UnconfiguredDomain => 'The sending domain is not configured for your account.',
             self::DomainNotFound => 'The specified domain was not found.',
             self::DomainNotVerified => 'The domain has not been verified.',
             self::DomainAlreadyExists => 'The domain already exists.',
+            self::ResourceAlreadyExists => 'The resource already exists.',
             self::WebhookNotFound => 'The specified webhook was not found.',
+            self::TemplateNotFound => 'The specified template was not found.',
+            self::NotFound => 'The requested resource was not found.',
             self::InvalidApiKey => 'The API key is invalid.',
             self::RateLimitExceeded => 'Rate limit exceeded. Please try again later.',
             self::QuotaExceeded => 'Sending quota exceeded. Upgrade your plan to continue sending.',
@@ -46,6 +58,10 @@ enum ErrorCode: string
             self::MessageTooLarge => 'The message exceeds the maximum size limit.',
             self::AttachmentTooLarge => 'One or more attachments exceed the size limit.',
             self::InsufficientScope => 'Your API key does not have the required permissions for this action.',
+            self::SendError => 'Failed to submit the message to the mail service.',
+            self::RetrievalError => 'Failed to retrieve the requested data from the upstream service.',
+            self::TransmissionFailed => 'The transmission could not be completed.',
+            self::ScheduleCancellationFailed => 'The scheduled transmission could not be cancelled.',
         };
     }
 
@@ -57,15 +73,20 @@ enum ErrorCode: string
         return in_array($this, [
             self::ValidationError,
             self::InvalidDomain,
+            self::UnconfiguredDomain,
             self::DomainNotFound,
             self::DomainNotVerified,
             self::DomainAlreadyExists,
+            self::ResourceAlreadyExists,
             self::WebhookNotFound,
+            self::TemplateNotFound,
+            self::NotFound,
             self::InvalidApiKey,
             self::InsufficientScope,
             self::InvalidRecipient,
             self::MessageTooLarge,
             self::AttachmentTooLarge,
+            self::ScheduleCancellationFailed,
         ], true);
     }
 
@@ -74,7 +95,12 @@ enum ErrorCode: string
      */
     public function isServerError(): bool
     {
-        return $this === self::InternalError;
+        return in_array($this, [
+            self::InternalError,
+            self::SendError,
+            self::RetrievalError,
+            self::TransmissionFailed,
+        ], true);
     }
 
     /**
