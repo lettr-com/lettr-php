@@ -10,9 +10,6 @@ use Lettr\Enums\WebhookEventType;
 
 /**
  * Data for updating an existing webhook.
- *
- * Note: the spec's update request uses the field name `target` (not `url`)
- * to carry the destination URL — matching the underlying API's naming.
  */
 final readonly class UpdateWebhookData implements Arrayable
 {
@@ -21,7 +18,7 @@ final readonly class UpdateWebhookData implements Arrayable
      */
     public function __construct(
         public ?string $name = null,
-        public ?string $target = null,
+        public ?string $url = null,
         public ?WebhookAuthType $authType = null,
         public ?string $authUsername = null,
         public ?string $authPassword = null,
@@ -43,8 +40,8 @@ final readonly class UpdateWebhookData implements Arrayable
             $data['name'] = $this->name;
         }
 
-        if ($this->target !== null) {
-            $data['target'] = $this->target;
+        if ($this->url !== null) {
+            $data['url'] = $this->url;
         }
 
         if ($this->authType !== null) {

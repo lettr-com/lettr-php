@@ -49,7 +49,7 @@ test('list returns WebhookCollection with prefixed event types', function (): vo
         ->and($wh->isHealthy())->toBeTrue();
 });
 
-test('list handles null event_types as empty collection', function (): void {
+test('list keeps null event_types as null to signal all-events subscription', function (): void {
     $transporter = new MockTransporter;
     $transporter->response = [
         'webhooks' => [
@@ -68,7 +68,9 @@ test('list handles null event_types as empty collection', function (): void {
     $service = new WebhookService($transporter);
     $wh = $service->list()->all()[0];
 
-    expect($wh->eventTypes->isEmpty())->toBeTrue();
+    expect($wh->eventTypes)->toBeNull()
+        ->and($wh->listensToAllEvents())->toBeTrue()
+        ->and($wh->listensTo(WebhookEventType::MessageDelivery))->toBeTrue();
 });
 
 test('get returns Webhook by id', function (): void {
@@ -157,7 +159,7 @@ test('create accepts plain string events for flexibility', function (): void {
     expect($transporter->lastData['events'])->toBe(['message.delivery']);
 });
 
-test('update PUT webhooks/{id} and emits target field', function (): void {
+test('update PUT webhooks/{id} emits url field', function (): void {
     $transporter = new MockTransporter;
     $transporter->response = [
         'id' => 'wh_upd',
@@ -166,13 +168,13 @@ test('update PUT webhooks/{id} and emits target field', function (): void {
         'enabled' => true,
         'auth_type' => 'none',
         'has_auth_credentials' => false,
-        'event_types' => null,
+        'event_types' => ['engagement.amp_click'],
     ];
 
     $service = new WebhookService($transporter);
     $service->update('wh_upd', new UpdateWebhookData(
         name: 'Updated',
-        target: 'https://example.com/new',
+        url: 'https://example.com/new',
         events: [WebhookEventType::EngagementAmpClick],
         active: true,
     ));
@@ -180,7 +182,7 @@ test('update PUT webhooks/{id} and emits target field', function (): void {
     expect($transporter->lastUri)->toBe('webhooks/wh_upd')
         ->and($transporter->lastData)->toBe([
             'name' => 'Updated',
-            'target' => 'https://example.com/new',
+            'url' => 'https://example.com/new',
             'events' => ['engagement.amp_click'],
             'active' => true,
         ]);

@@ -368,9 +368,13 @@ foreach ($webhooks as $webhook) {
     echo $webhook->enabled;
     echo $webhook->authType->value;  // 'none', 'basic', 'oauth2'
 
-    // Event types this webhook listens to
-    foreach ($webhook->eventTypes as $eventType) {
-        echo $eventType->value;  // 'delivery', 'bounce', 'open', etc.
+    // Event types this webhook listens to (null = subscribed to all events)
+    if ($webhook->listensToAllEvents()) {
+        echo 'all events';
+    } else {
+        foreach ($webhook->eventTypes as $eventType) {
+            echo $eventType->value;  // 'message.delivery', 'engagement.click', etc.
+        }
     }
 
     // Health check

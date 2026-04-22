@@ -23,7 +23,7 @@ final readonly class Webhook
         public bool $enabled,
         public WebhookAuthType $authType,
         public bool $hasAuthCredentials,
-        public WebhookEventTypeCollection $eventTypes,
+        public ?WebhookEventTypeCollection $eventTypes,
         public ?WebhookStatus $lastStatus = null,
         public ?Timestamp $lastSuccessfulAt = null,
         public ?Timestamp $lastFailureAt = null,
@@ -56,7 +56,7 @@ final readonly class Webhook
             hasAuthCredentials: $data['has_auth_credentials'],
             eventTypes: $data['event_types'] !== null
                 ? WebhookEventTypeCollection::from($data['event_types'])
-                : WebhookEventTypeCollection::empty(),
+                : null,
             lastStatus: isset($data['last_status']) ? WebhookStatus::from($data['last_status']) : null,
             lastSuccessfulAt: isset($data['last_successful_at']) ? Timestamp::fromString($data['last_successful_at']) : null,
             lastFailureAt: isset($data['last_failure_at']) ? Timestamp::fromString($data['last_failure_at']) : null,
@@ -82,9 +82,19 @@ final readonly class Webhook
 
     /**
      * Check if the webhook listens to a specific event type.
+     *
+     * A null `eventTypes` means the webhook is subscribed to every event.
      */
     public function listensTo(WebhookEventType $type): bool
     {
-        return $this->eventTypes->contains($type);
+        return $this->eventTypes === null || $this->eventTypes->contains($type);
+    }
+
+    /**
+     * Whether the webhook is subscribed to every event (API returned `event_types: null`).
+     */
+    public function listensToAllEvents(): bool
+    {
+        return $this->eventTypes === null;
     }
 }
