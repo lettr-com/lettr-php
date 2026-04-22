@@ -33,8 +33,14 @@ enum WebhookEventType: string
     case UnsubscribeList = 'unsubscribe.list_unsubscribe';
     case UnsubscribeLink = 'unsubscribe.link_unsubscribe';
 
+    case RelayInjection = 'relay.relay_injection';
+    case RelayRejection = 'relay.relay_rejection';
+    case RelayDelivery = 'relay.relay_delivery';
+    case RelayTempfail = 'relay.relay_tempfail';
+    case RelayPermfail = 'relay.relay_permfail';
+
     /**
-     * The category prefix (`message`, `engagement`, `generation`, `unsubscribe`).
+     * The category prefix (`message`, `engagement`, `generation`, `unsubscribe`, `relay`).
      */
     public function category(): string
     {

@@ -28,7 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
   - `WebhookService` now supports `list`, `get`, `create`, `update`, `delete`
   - New DTOs: `CreateWebhookData`, `UpdateWebhookData`
   - New enum `WebhookEventsMode` (`all`, `selected`)
-  - New enum `WebhookEventType` with 17 namespaced cases (`message.*`, `engagement.*`, `generation.*`, `unsubscribe.*`) — distinct from `EventType` used for email-event filtering
+  - New enum `WebhookEventType` with 22 namespaced cases (`message.*`, `engagement.*`, `generation.*`, `unsubscribe.*`, `relay.*`) — distinct from `EventType` used for email-event filtering
   - New `WebhookEventTypeCollection`
 - **Domain list & detail**
   - `Domain` DTO gains `statusLabel`, `updatedAt`, and `cnameStatus`; drops `returnPathStatus` (was always `Unverified` — never returned by API) and `verifiedAt` (never returned)
