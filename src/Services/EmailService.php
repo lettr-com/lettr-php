@@ -117,8 +117,8 @@ final class EmailService
     public function sendTemplate(
         string|EmailAddress $from,
         array|string $to,
-        ?string $subject, // TODO 2.0.0: make optional by reordering after $templateSlug
         string $templateSlug,
+        ?string $subject = null,
         ?int $templateVersion = null,
         ?int $projectId = null,
         ?array $substitutionData = null,

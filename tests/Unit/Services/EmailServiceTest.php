@@ -180,8 +180,22 @@ test('sendTemplate helper without subject lets template define it', function ():
     $service->sendTemplate(
         from: 'sender@example.com',
         to: 'recipient@example.com',
-        subject: null,
         templateSlug: 'welcome-email',
+    );
+
+    expect($transporter->lastData['template_slug'])->toBe('welcome-email')
+        ->and($transporter->lastData)->not->toHaveKey('subject');
+});
+
+test('sendTemplate accepts positional arguments in new order', function (): void {
+    $transporter = new MockTransporter;
+    $transporter->response = ['request_id' => 'req_tpl4', 'accepted' => 1, 'rejected' => 0];
+
+    $service = new EmailService($transporter);
+    $service->sendTemplate(
+        'sender@example.com',
+        'recipient@example.com',
+        'welcome-email',
     );
 
     expect($transporter->lastData['template_slug'])->toBe('welcome-email')
