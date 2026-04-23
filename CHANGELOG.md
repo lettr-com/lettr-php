@@ -4,7 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [1.4.0] - 2026-04-18
+## [2.0.0] - 2026-04-23
+
+### Breaking changes
+- `Dto\Domain\Domain` drops `returnPathStatus` and `verifiedAt`; `Dto\Domain\DomainDetail` drops `verifiedAt` (API never emitted these fields)
+- `Dto\Domain\DomainVerification::$ownershipVerified` retyped from `?bool` to `?string` (API returns `"true"` quoted)
+- `Dto\Template\CreateTemplateData::$slug` removed — the API now server-generates slugs
+- `Dto\Webhook\Webhook::$eventTypes` is now `?WebhookEventTypeCollection` (nullable). `null` signals the webhook is subscribed to every event; any code iterating the collection without a null check must guard with `listensToAllEvents()`
+- `Dto\Webhook\UpdateWebhookData::$target` renamed to `$url` to match the API's field name on `PUT /webhooks/{id}`
+- `EmailService::sendTemplate()` parameters reordered — `$templateSlug` now comes before `$subject`, and `$subject` is optional (defaults to `null`). Call sites using named arguments are unaffected; positional callers must reorder the 3rd–4th arguments
+- `Webhook::from()` previously parsed `event_types` through the unprefixed `EventType` enum, which would throw on any real webhook response (spec uses `message.delivery` etc.). Webhooks now use the new `WebhookEventType` enum
 
 ### Added
 - **Email list & events endpoints**
@@ -26,7 +35,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
   - `MergeTag` gains an optional `name` field
 - **Webhook CRUD**
   - `WebhookService` now supports `list`, `get`, `create`, `update`, `delete`
-  - New DTOs: `CreateWebhookData`, `UpdateWebhookData`
+  - New DTOs: `CreateWebhookData`, `UpdateWebhookData` (the update payload uses `url`, matching the API)
+  - `Webhook::listensToAllEvents()` helper (returns `true` when the webhook subscribes to every event, i.e. `eventTypes === null`)
   - New enum `WebhookEventsMode` (`all`, `selected`)
   - New enum `WebhookEventType` with 22 namespaced cases (`message.*`, `engagement.*`, `generation.*`, `unsubscribe.*`, `relay.*`) — distinct from `EventType` used for email-event filtering
   - New `WebhookEventTypeCollection`
@@ -36,7 +46,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - **Domain verification** — `DomainVerification` DTO now surfaces `dmarc_status`, `spf_status`, `is_primary_domain`, and the `DmarcVerification` / `SpfVerification` sub-objects. Drops the undocumented `dkim/cname/dmarc/spf_warning_level` fields (API never emitted them — `from()` previously threw `Undefined array key` on real responses). `ownershipVerified` retyped from `?bool` to `?string` to match the actual response ("true" quoted)
 - **Email events** — `EmailEvent` DTO gains every `CommonEventProperties` field (`campaign_id`, `template_id`, `template_version`, `ip_pool`, `msg_from`, `rcpt_type`, `rcpt_tags`, `amp_enabled`, `delv_method`, `recv_method`, `routing_domain`, `scheduled_time`, `ab_test_id`, `ab_test_version`, `rcpt_meta`) plus per-event-type extras (`outbound_tls`, `device_token`, `fbtype`, `report_by`, `report_to`, `remote_addr`, `initial_pixel`). New `UserAgentParsed` and `GeoIp` DTOs replace raw arrays
 - **Auth** — `HealthService::authCheck()` against `GET /auth/check`
-- **Transport** — `TransporterContract::getWithQuery()` for query-string GETs
+- **Transport** — `TransporterContract::getWithQuery()` for query-string GETs and `TransporterContract::put()` for PUT requests (used by template and webhook updates)
 - **Error codes** — `ErrorCode` enum expanded with `unconfigured_domain`, `send_error`, `retrieval_error`, `transmission_failed`, `resource_already_exists`, `not_found`, `template_not_found`, `schedule_cancellation_failed`
 - **AMP events** — `EventType` enum now includes `amp_click`, `amp_open`, `amp_initial_open`
 

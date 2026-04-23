@@ -127,24 +127,22 @@ $response = $lettr->emails()->sendText(
     text: 'Plain text content',
 );
 
-// Template email (subject is optional — if omitted, the template must have a subject defined,
-// otherwise the API will return an error)
+// Template email — subject is optional; if omitted, the template's own subject is used
 $response = $lettr->emails()->sendTemplate(
     from: 'sender@example.com',
     to: 'recipient@example.com',
-    subject: null,
     templateSlug: 'welcome-email',
     templateVersion: 2,
     projectId: 123,
     substitutionData: ['name' => 'John'],
 );
 
-// Override the template subject
+// Override the template's subject
 $response = $lettr->emails()->sendTemplate(
     from: 'sender@example.com',
     to: 'recipient@example.com',
-    subject: 'Welcome!',
     templateSlug: 'welcome-email',
+    subject: 'Welcome!',
 );
 ```
 
