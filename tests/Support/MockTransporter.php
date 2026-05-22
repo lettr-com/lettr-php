@@ -28,6 +28,8 @@ final class MockTransporter implements TransporterContract
     /** @var array<string, string|string[]> */
     public array $responseHeaders = [];
 
+    public ?int $statusCode = null;
+
     public function post(string $uri, array $data): array
     {
         $this->lastUri = $uri;
@@ -59,13 +61,34 @@ final class MockTransporter implements TransporterContract
         return $this->response;
     }
 
+    public function patch(string $uri, array $data): array
+    {
+        $this->lastUri = $uri;
+        $this->lastData = $data;
+
+        return $this->response;
+    }
+
     public function delete(string $uri): void
     {
         $this->lastUri = $uri;
     }
 
+    public function deleteWithBody(string $uri, array $data): array
+    {
+        $this->lastUri = $uri;
+        $this->lastData = $data;
+
+        return $this->response;
+    }
+
     public function lastResponseHeaders(): array
     {
         return $this->responseHeaders;
+    }
+
+    public function lastStatusCode(): ?int
+    {
+        return $this->statusCode;
     }
 }

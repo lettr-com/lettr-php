@@ -48,6 +48,16 @@ interface TransporterContract
     public function put(string $uri, array $data): array;
 
     /**
+     * Send a PATCH request to the API.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     *
+     * @throws LettrException
+     */
+    public function patch(string $uri, array $data): array;
+
+    /**
      * Send a DELETE request to the API.
      *
      * @throws LettrException
@@ -55,9 +65,24 @@ interface TransporterContract
     public function delete(string $uri): void;
 
     /**
+     * Send a DELETE request with a JSON body and a non-empty response.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     *
+     * @throws LettrException
+     */
+    public function deleteWithBody(string $uri, array $data): array;
+
+    /**
      * Get the response headers from the last request.
      *
      * @return array<string, string|string[]>
      */
     public function lastResponseHeaders(): array;
+
+    /**
+     * Get the HTTP status code from the last successful API response.
+     */
+    public function lastStatusCode(): ?int;
 }

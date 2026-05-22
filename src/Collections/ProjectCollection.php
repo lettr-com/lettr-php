@@ -7,6 +7,7 @@ namespace Lettr\Collections;
 use ArrayIterator;
 use Countable;
 use IteratorAggregate;
+use JsonSerializable;
 use Lettr\Dto\Project\Project;
 use Traversable;
 
@@ -15,7 +16,7 @@ use Traversable;
  *
  * @implements IteratorAggregate<int, Project>
  */
-final readonly class ProjectCollection implements Countable, IteratorAggregate
+final readonly class ProjectCollection implements Countable, IteratorAggregate, JsonSerializable
 {
     /**
      * @var array<int, Project>
@@ -113,5 +114,13 @@ final readonly class ProjectCollection implements Countable, IteratorAggregate
     public function getIterator(): Traversable
     {
         return new ArrayIterator($this->items);
+    }
+
+    /**
+     * @return array<int, Project>
+     */
+    public function jsonSerialize(): array
+    {
+        return $this->items;
     }
 }

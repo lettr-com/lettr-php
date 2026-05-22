@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- `AudienceTopicDefaultSubscription::subscribesNewContactsByDefault()` helper. Returns `true` for `OptOut` (auto-subscribe) and `false` for `OptIn` (must opt in). Use this in preference to `isOptIn()` when you care about the resulting subscription state rather than the case identity.
+
+### Fixed
+- `ContactProperties` (and every `Collection` under `src/Collections/`) now implement `JsonSerializable` so `json_encode()` preserves property keys (key→value object for `ContactProperties`) and item order (positional JSON array for collections). Previously, a generic dumper that walked them via `IteratorAggregate` could drop string keys (e.g. emitting `["SDK"]` instead of `{"first_name":"SDK"}`).
+
 ## [2.0.0] - 2026-04-23
 
 ### Breaking changes

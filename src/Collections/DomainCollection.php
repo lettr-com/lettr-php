@@ -7,6 +7,7 @@ namespace Lettr\Collections;
 use ArrayIterator;
 use Countable;
 use IteratorAggregate;
+use JsonSerializable;
 use Lettr\Dto\Domain\Domain;
 use Lettr\Enums\DomainStatus;
 use Traversable;
@@ -16,7 +17,7 @@ use Traversable;
  *
  * @implements IteratorAggregate<int, Domain>
  */
-final readonly class DomainCollection implements Countable, IteratorAggregate
+final readonly class DomainCollection implements Countable, IteratorAggregate, JsonSerializable
 {
     /**
      * @var array<int, Domain>
@@ -120,5 +121,13 @@ final readonly class DomainCollection implements Countable, IteratorAggregate
     public function getIterator(): Traversable
     {
         return new ArrayIterator($this->items);
+    }
+
+    /**
+     * @return array<int, Domain>
+     */
+    public function jsonSerialize(): array
+    {
+        return $this->items;
     }
 }

@@ -6,6 +6,7 @@ namespace Lettr;
 
 use Lettr\Contracts\TransporterContract;
 use Lettr\Dto\RateLimit;
+use Lettr\Services\AudienceService;
 use Lettr\Services\DomainService;
 use Lettr\Services\EmailService;
 use Lettr\Services\HealthService;
@@ -21,6 +22,7 @@ use Lettr\Services\WebhookService;
  * @property-read WebhookService $webhooks
  * @property-read TemplateService $templates
  * @property-read ProjectService $projects
+ * @property-read AudienceService $audience
  * @property-read HealthService $health
  */
 final class Lettr
@@ -44,6 +46,8 @@ final class Lettr
     private ?TemplateService $templateService = null;
 
     private ?ProjectService $projectService = null;
+
+    private ?AudienceService $audienceService = null;
 
     private ?HealthService $healthService = null;
 
@@ -120,6 +124,18 @@ final class Lettr
     }
 
     /**
+     * Get the audience service (lists, contacts, topics, properties, segments).
+     */
+    public function audience(): AudienceService
+    {
+        if ($this->audienceService === null) {
+            $this->audienceService = new AudienceService($this->client);
+        }
+
+        return $this->audienceService;
+    }
+
+    /**
      * Get the health service.
      */
     public function health(): HealthService
@@ -162,6 +178,7 @@ final class Lettr
             'webhooks' => $this->webhooks(),
             'templates' => $this->templates(),
             'projects' => $this->projects(),
+            'audience' => $this->audience(),
             'health' => $this->health(),
             default => throw new \InvalidArgumentException("Unknown service: {$name}"),
         };

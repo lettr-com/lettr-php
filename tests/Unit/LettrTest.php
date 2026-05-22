@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Lettr\Lettr;
+use Lettr\Services\AudienceService;
 use Lettr\Services\DomainService;
 use Lettr\Services\EmailService;
 use Lettr\Services\ProjectService;
@@ -118,6 +119,27 @@ test('projects service is cached', function (): void {
     $projects2 = $lettr->projects();
 
     expect($projects1)->toBe($projects2);
+});
+
+test('can access audience service via method', function (): void {
+    $lettr = Lettr::client('test-api-key');
+
+    expect($lettr->audience())->toBeInstanceOf(AudienceService::class);
+});
+
+test('can access audience service via property', function (): void {
+    $lettr = Lettr::client('test-api-key');
+
+    expect($lettr->audience)->toBeInstanceOf(AudienceService::class);
+});
+
+test('audience service is cached', function (): void {
+    $lettr = Lettr::client('test-api-key');
+
+    $audience1 = $lettr->audience();
+    $audience2 = $lettr->audience();
+
+    expect($audience1)->toBe($audience2);
 });
 
 test('throws exception for unknown service', function (): void {

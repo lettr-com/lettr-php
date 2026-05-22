@@ -7,6 +7,7 @@ namespace Lettr\Collections;
 use ArrayIterator;
 use Countable;
 use IteratorAggregate;
+use JsonSerializable;
 use Lettr\Exceptions\InvalidValueException;
 use Lettr\ValueObjects\EmailAddress;
 use Traversable;
@@ -16,7 +17,7 @@ use Traversable;
  *
  * @implements IteratorAggregate<int, EmailAddress>
  */
-final readonly class EmailAddressCollection implements Countable, IteratorAggregate
+final readonly class EmailAddressCollection implements Countable, IteratorAggregate, JsonSerializable
 {
     private const MAX_RECIPIENTS = 50;
 
@@ -165,5 +166,13 @@ final readonly class EmailAddressCollection implements Countable, IteratorAggreg
     public function getIterator(): Traversable
     {
         return new ArrayIterator($this->items);
+    }
+
+    /**
+     * @return array<int, EmailAddress>
+     */
+    public function jsonSerialize(): array
+    {
+        return $this->items;
     }
 }
