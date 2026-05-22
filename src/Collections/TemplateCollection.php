@@ -7,6 +7,7 @@ namespace Lettr\Collections;
 use ArrayIterator;
 use Countable;
 use IteratorAggregate;
+use JsonSerializable;
 use Lettr\Dto\Template\Template;
 use Traversable;
 
@@ -15,7 +16,7 @@ use Traversable;
  *
  * @implements IteratorAggregate<int, Template>
  */
-final readonly class TemplateCollection implements Countable, IteratorAggregate
+final readonly class TemplateCollection implements Countable, IteratorAggregate, JsonSerializable
 {
     /**
      * @var array<int, Template>
@@ -125,5 +126,13 @@ final readonly class TemplateCollection implements Countable, IteratorAggregate
     public function getIterator(): Traversable
     {
         return new ArrayIterator($this->items);
+    }
+
+    /**
+     * @return array<int, Template>
+     */
+    public function jsonSerialize(): array
+    {
+        return $this->items;
     }
 }

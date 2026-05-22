@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.1.0] - 2026-05-22
+
+### Added
+- **Audience module** — 33 new endpoints across 5 sub-resources (lists, contacts, topics, properties, segments) exposed under `$lettr->audience`:
+  - `$lettr->audience->lists()` — list, get, create, update (PATCH), delete, bulkDelete
+  - `$lettr->audience->contacts()` — list, get, create, update (PATCH), delete, bulkCreate, bulkAttachLists, bulkDetachLists, attachList, detachList, subscribeTopic, unsubscribeTopic. `attachList()` and `subscribeTopic()` return `bool` (`true` = newly attached / 201; `false` = already existed / 200).
+  - `$lettr->audience->topics()`, `$lettr->audience->properties()`, `$lettr->audience->segments()` — standard CRUD
+- New DTOs under `Dto\Audience\` (entities, write data, filters, bulk results, `DoubleOptInConfig`, `SegmentConditionsInput`)
+- New collections (`AudienceListCollection`, `AudienceContactCollection`, `AudienceTopicCollection`, `AudiencePropertyCollection`, `AudienceSegmentCollection`) and list-response wrappers
+- New enums: `AudienceContactStatus`, `AudienceTopicDefaultSubscription`, `AudienceTopicVisibility`, `AudiencePropertyType`, `SegmentOperator`
+- New `ContactProperties` value object (used on `AudienceContact->properties`)
+- `TransporterContract::patch()` and `TransporterContract::deleteWithBody()` for PATCH and DELETE-with-body endpoints
+- `TransporterContract::lastStatusCode()` exposes the HTTP status from the last successful response (used by attach/subscribe to distinguish 200/201)
+- `AudienceTopicDefaultSubscription::subscribesNewContactsByDefault()` helper. Returns `true` for `OptOut` (auto-subscribe) and `false` for `OptIn` (must opt in). Use this in preference to `isOptIn()` when you care about the resulting subscription state rather than the case identity.
+
+### Fixed
+- `ContactProperties` (and every `Collection` under `src/Collections/`) now implement `JsonSerializable` so `json_encode()` preserves property keys (key→value object for `ContactProperties`) and item order (positional JSON array for collections). Previously, a generic dumper that walked them via `IteratorAggregate` could drop string keys (e.g. emitting `["SDK"]` instead of `{"first_name":"SDK"}`).
+
 ## [2.0.0] - 2026-04-23
 
 ### Breaking changes

@@ -7,6 +7,7 @@ namespace Lettr\Collections;
 use ArrayIterator;
 use Countable;
 use IteratorAggregate;
+use JsonSerializable;
 use Lettr\Enums\EventType;
 use Traversable;
 
@@ -15,7 +16,7 @@ use Traversable;
  *
  * @implements IteratorAggregate<int, EventType>
  */
-final readonly class EventTypeCollection implements Countable, IteratorAggregate
+final readonly class EventTypeCollection implements Countable, IteratorAggregate, JsonSerializable
 {
     /**
      * @var array<int, EventType>
@@ -148,5 +149,13 @@ final readonly class EventTypeCollection implements Countable, IteratorAggregate
     public function getIterator(): Traversable
     {
         return new ArrayIterator($this->items);
+    }
+
+    /**
+     * @return array<int, EventType>
+     */
+    public function jsonSerialize(): array
+    {
+        return $this->items;
     }
 }

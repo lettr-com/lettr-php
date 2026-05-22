@@ -7,6 +7,7 @@ namespace Lettr\Collections;
 use ArrayIterator;
 use Countable;
 use IteratorAggregate;
+use JsonSerializable;
 use Lettr\Dto\Email\Attachment;
 use Traversable;
 
@@ -15,7 +16,7 @@ use Traversable;
  *
  * @implements IteratorAggregate<int, Attachment>
  */
-final readonly class AttachmentCollection implements Countable, IteratorAggregate
+final readonly class AttachmentCollection implements Countable, IteratorAggregate, JsonSerializable
 {
     /**
      * @var array<int, Attachment>
@@ -96,5 +97,13 @@ final readonly class AttachmentCollection implements Countable, IteratorAggregat
             static fn (Attachment $attachment): array => $attachment->toArray(),
             $this->items
         );
+    }
+
+    /**
+     * @return array<int, array{name: string, type: string, data: string}>
+     */
+    public function jsonSerialize(): array
+    {
+        return $this->toArray();
     }
 }

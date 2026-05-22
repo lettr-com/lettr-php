@@ -34,6 +34,8 @@ final class Client implements TransporterContract
     /** @var array<string, string|string[]> */
     private array $lastHeaders = [];
 
+    private ?int $lastStatusCode = null;
+
     public function __construct(string $apiKey)
     {
         $this->apiKey = $apiKey;
@@ -79,6 +81,14 @@ final class Client implements TransporterContract
     /**
      * {@inheritDoc}
      */
+    public function patch(string $uri, array $data): array
+    {
+        return $this->request('PATCH', $uri, $data);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
     public function delete(string $uri): void
     {
         $this->request('DELETE', $uri);
@@ -87,9 +97,25 @@ final class Client implements TransporterContract
     /**
      * {@inheritDoc}
      */
+    public function deleteWithBody(string $uri, array $data): array
+    {
+        return $this->request('DELETE', $uri, $data);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
     public function lastResponseHeaders(): array
     {
         return $this->lastHeaders;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function lastStatusCode(): ?int
+    {
+        return $this->lastStatusCode;
     }
 
     /**
@@ -123,6 +149,7 @@ final class Client implements TransporterContract
         try {
             $response = $this->httpClient->request($method, $uri, $options);
             $this->lastHeaders = $this->extractHeaders($response);
+            $this->lastStatusCode = $response->getStatusCode();
             $contents = $response->getBody()->getContents();
 
             if (trim($contents) === '') {

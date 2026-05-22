@@ -7,6 +7,7 @@ namespace Lettr\Collections;
 use ArrayIterator;
 use Countable;
 use IteratorAggregate;
+use JsonSerializable;
 use Lettr\Dto\Webhook\Webhook;
 use Traversable;
 
@@ -15,7 +16,7 @@ use Traversable;
  *
  * @implements IteratorAggregate<int, Webhook>
  */
-final readonly class WebhookCollection implements Countable, IteratorAggregate
+final readonly class WebhookCollection implements Countable, IteratorAggregate, JsonSerializable
 {
     /**
      * @var array<int, Webhook>
@@ -103,5 +104,13 @@ final readonly class WebhookCollection implements Countable, IteratorAggregate
     public function getIterator(): Traversable
     {
         return new ArrayIterator($this->items);
+    }
+
+    /**
+     * @return array<int, Webhook>
+     */
+    public function jsonSerialize(): array
+    {
+        return $this->items;
     }
 }

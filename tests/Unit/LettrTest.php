@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Lettr\Lettr;
+use Lettr\Services\AudienceService;
 use Lettr\Services\DomainService;
 use Lettr\Services\EmailService;
 use Lettr\Services\ProjectService;
@@ -120,6 +121,27 @@ test('projects service is cached', function (): void {
     expect($projects1)->toBe($projects2);
 });
 
+test('can access audience service via method', function (): void {
+    $lettr = Lettr::client('test-api-key');
+
+    expect($lettr->audience())->toBeInstanceOf(AudienceService::class);
+});
+
+test('can access audience service via property', function (): void {
+    $lettr = Lettr::client('test-api-key');
+
+    expect($lettr->audience)->toBeInstanceOf(AudienceService::class);
+});
+
+test('audience service is cached', function (): void {
+    $lettr = Lettr::client('test-api-key');
+
+    $audience1 = $lettr->audience();
+    $audience2 = $lettr->audience();
+
+    expect($audience1)->toBe($audience2);
+});
+
 test('throws exception for unknown service', function (): void {
     $lettr = Lettr::client('test-api-key');
 
@@ -127,7 +149,7 @@ test('throws exception for unknown service', function (): void {
 })->throws(InvalidArgumentException::class, 'Unknown service: unknownService');
 
 test('has correct version constant', function (): void {
-    expect(Lettr::VERSION)->toBe('2.0.0');
+    expect(Lettr::VERSION)->toBe('2.1.0');
 });
 
 test('has correct base url constant', function (): void {
