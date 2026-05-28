@@ -521,7 +521,7 @@ $response = $lettr->templates()->getMergeTags(
 
 Campaigns are read-only plus lifecycle actions (send, schedule, unschedule) — there is no create/update/delete via the API. All endpoints require an API key with the `campaigns:read` (reads) or `campaigns:write` (actions) scope.
 
-`list()` and `get()` both return `CampaignSummary` — the only difference is that `get()` populates `$campaign->htmlContent` (the rendered email body); list responses leave it `null`.
+`list()` returns `CampaignSummary` items; `get()` returns a `CampaignDetail` (a subclass of `CampaignSummary`) with the rendered email body at `$campaign->htmlContent`. Action methods (`send`, `schedule`, `unschedule`) return a plain `CampaignSummary` — `htmlContent` is intentionally not exposed there because the API doesn't include it in action responses.
 
 `$campaign->status` is a `CampaignStatus` for spec-known values, or the raw string for any future status the SDK doesn't yet recognise — so a server-side enum extension can never crash deserialisation. The same shape applies to `$event->eventType` (typed `EventType|string`).
 
@@ -557,10 +557,11 @@ $response = $lettr->campaigns()->list(
 ### Get a Campaign
 
 ```php
+// Returns CampaignDetail (extends CampaignSummary, adds $htmlContent)
 $campaign = $lettr->campaigns()->get('0193e6a8-1f3a-7c2a-b9e2-1aa1d2e5d3f0');
 
 echo $campaign->subject;
-echo $campaign->htmlContent; // rendered HTML content (populated only by get())
+echo $campaign->htmlContent; // rendered HTML body — CampaignDetail only
 echo $campaign->stats->clicks;
 ```
 

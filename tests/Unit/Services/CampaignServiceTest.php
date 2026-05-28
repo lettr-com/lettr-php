@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Lettr\Dto\Campaign\CampaignDetail;
 use Lettr\Dto\Campaign\CampaignSummary;
 use Lettr\Dto\Campaign\ListCampaignEventsFilter;
 use Lettr\Dto\Campaign\ListCampaignsFilter;
@@ -71,7 +72,6 @@ test('list GETs campaigns and returns ListCampaignsResponse', function (): void 
         ->and($response->campaigns->all()[0]->status)->toBe(CampaignStatus::Sent)
         ->and($response->campaigns->all()[0]->sentCount)->toBe(124)
         ->and($response->campaigns->all()[0]->stats->uniqueOpens)->toBe(60)
-        ->and($response->campaigns->all()[0]->htmlContent)->toBeNull()
         ->and($response->pagination->total)->toBe(1)
         ->and($response->hasMore())->toBeFalse();
 });
@@ -105,7 +105,7 @@ test('list forwards filter query with status enum value', function (): void {
         ->and($response->hasMore())->toBeTrue();
 });
 
-test('get GETs campaigns/{id} and returns a CampaignSummary with htmlContent', function (): void {
+test('get GETs campaigns/{id} and returns a CampaignDetail with htmlContent', function (): void {
     $transporter = new MockTransporter;
     $transporter->response = [...campaignSummaryFixture('abc'), 'html_content' => '<h1>Hi</h1>'];
 
@@ -113,10 +113,22 @@ test('get GETs campaigns/{id} and returns a CampaignSummary with htmlContent', f
     $campaign = $service->get('abc');
 
     expect($transporter->lastUri)->toBe('campaigns/abc')
+        ->and($campaign)->toBeInstanceOf(CampaignDetail::class)
         ->and($campaign)->toBeInstanceOf(CampaignSummary::class)
         ->and($campaign->id)->toBe('abc')
         ->and($campaign->status)->toBe(CampaignStatus::Sent)
         ->and($campaign->htmlContent)->toBe('<h1>Hi</h1>');
+});
+
+test('get treats missing html_content as null', function (): void {
+    $transporter = new MockTransporter;
+    $transporter->response = campaignSummaryFixture('abc');
+
+    $service = new CampaignService($transporter);
+    $campaign = $service->get('abc');
+
+    expect($campaign)->toBeInstanceOf(CampaignDetail::class)
+        ->and($campaign->htmlContent)->toBeNull();
 });
 
 test('events GETs campaigns/{id}/events and maps cursor', function (): void {
@@ -274,4 +286,18 @@ test('action method refetches campaign via GET when envelope omits data', functi
         ->and($campaign->id)->toBe('abc')
         // Last call was the refetch.
         ->and($transporter->lastUri)->toBe('campaigns/abc');
+});
+
+test('action methods return CampaignSummary without htmlContent even when refetch picks up html_content', function (): void {
+    $transporter = new MockTransporter;
+    // Envelope omits `data`, forcing the refetch. The GET response happens
+    // to include `html_content`, but action methods must NOT expose it.
+    $transporter->response = [...campaignSummaryFixture('abc'), 'html_content' => '<h1>leak</h1>'];
+
+    $service = new CampaignService($transporter);
+    $campaign = $service->send('abc');
+
+    expect($campaign)->toBeInstanceOf(CampaignSummary::class)
+        ->and($campaign)->not->toBeInstanceOf(CampaignDetail::class)
+        ->and($campaign->id)->toBe('abc');
 });
