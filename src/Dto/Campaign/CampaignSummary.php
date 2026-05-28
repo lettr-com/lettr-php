@@ -7,14 +7,14 @@ namespace Lettr\Dto\Campaign;
 use Lettr\Enums\CampaignStatus;
 
 /**
- * Campaign — list/show response payload, with embedded engagement stats.
- *
- * `$htmlContent` is populated only by `GET /campaigns/{id}` (the show
- * endpoint); list and action responses leave it `null`.
+ * Campaign — list/action response payload, with embedded engagement stats.
  *
  * `$status` is a {@see CampaignStatus} for spec-known values, or the raw
  * string for any value the SDK doesn't yet recognise — so a server-side
  * enum extension never crashes deserialisation.
+ *
+ * For the rendered email body, see {@see CampaignDetail} returned by
+ * `CampaignService::get()`.
  *
  * @phpstan-import-type CampaignStatsData from CampaignStats
  *
@@ -32,10 +32,9 @@ use Lettr\Enums\CampaignStatus;
  *     sent_at?: string|null,
  *     created_at: string,
  *     stats: CampaignStatsData,
- *     html_content?: string|null,
  * }
  */
-final readonly class CampaignSummary
+readonly class CampaignSummary
 {
     public function __construct(
         public string $id,
@@ -51,7 +50,6 @@ final readonly class CampaignSummary
         public ?string $sentAt,
         public string $createdAt,
         public CampaignStats $stats,
-        public ?string $htmlContent = null,
     ) {}
 
     /**
@@ -73,7 +71,6 @@ final readonly class CampaignSummary
             sentAt: $data['sent_at'] ?? null,
             createdAt: $data['created_at'],
             stats: CampaignStats::from($data['stats']),
-            htmlContent: $data['html_content'] ?? null,
         );
     }
 }

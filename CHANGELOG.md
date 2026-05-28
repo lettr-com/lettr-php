@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.3.0] - 2026-05-28
+
+### Added
+- `Dto\Campaign\CampaignDetail` — subclass of `CampaignSummary` that adds `$htmlContent` (the rendered email body). Returned by `CampaignService::get()`.
+
+### Changed
+- `CampaignService::get()` return type narrowed from `CampaignSummary` to `CampaignDetail`. Substitutable everywhere a `CampaignSummary` was expected, so existing code continues to compile.
+- `htmlContent` is no longer a field on `CampaignSummary`. The API only returns `html_content` from `GET /campaigns/{id}`, so exposing it on the summary type was misleading — `list()`, `send()`, `schedule()`, and `unschedule()` callers no longer see a phantom `?string $htmlContent` that would always be `null`.
+
+### Fixed
+- `send()`, `schedule()`, and `unschedule()` no longer leak `htmlContent` when the API omits `data` from the action envelope and the SDK refetches the campaign. The refetched `CampaignDetail` is now downcast to a `CampaignSummary` before being returned, matching the action endpoints' contract (which does not include `html_content`).
+
 ## [2.2.0] - 2026-05-28
 
 ### Added

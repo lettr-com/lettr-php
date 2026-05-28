@@ -6,6 +6,7 @@ namespace Lettr\Services;
 
 use DateTimeInterface;
 use Lettr\Contracts\TransporterContract;
+use Lettr\Dto\Campaign\CampaignDetail;
 use Lettr\Dto\Campaign\CampaignSummary;
 use Lettr\Dto\Campaign\ListCampaignEventsFilter;
 use Lettr\Dto\Campaign\ListCampaignsFilter;
@@ -16,6 +17,7 @@ use Lettr\Responses\ListCampaignsResponse;
  * Service for reading campaigns and managing their delivery via the Lettr API.
  *
  * @phpstan-import-type CampaignSummaryData from CampaignSummary
+ * @phpstan-import-type CampaignDetailData from CampaignDetail
  * @phpstan-import-type CampaignEventData from \Lettr\Dto\Campaign\CampaignEvent
  */
 final class CampaignService
@@ -47,12 +49,12 @@ final class CampaignService
     /**
      * Get a single campaign with rendered HTML content (`$campaign->htmlContent`).
      */
-    public function get(string $campaignId): CampaignSummary
+    public function get(string $campaignId): CampaignDetail
     {
-        /** @var CampaignSummaryData $response */
+        /** @var CampaignDetailData $response */
         $response = $this->transporter->get(self::ENDPOINT.'/'.$campaignId);
 
-        return CampaignSummary::from($response);
+        return CampaignDetail::from($response);
     }
 
     /**
@@ -77,8 +79,8 @@ final class CampaignService
      * Send a draft campaign immediately.
      *
      * Returns the updated campaign. In the rare case the API omits the
-     * campaign payload from the action response, the SDK fetches it via
-     * `get($campaignId)` so the caller never sees null.
+     * campaign payload from the action response, the SDK refetches it via
+     * `GET /campaigns/{id}` so the caller never sees null.
      */
     public function send(string $campaignId): CampaignSummary
     {
@@ -127,7 +129,9 @@ final class CampaignService
      * Resolve a CampaignActionResponse envelope (`{message, data?: CampaignSummary}`)
      * to a non-null CampaignSummary, refetching when the API omits `data` or
      * returns a payload that isn't a complete campaign (lacking the required
-     * `id` + `stats` keys).
+     * `id` + `stats` keys). The refetch upcasts the detail to a summary so
+     * action results never expose `htmlContent` — that field belongs to
+     * `get()` only.
      *
      * @param  array<string, mixed>  $envelope
      */
@@ -140,6 +144,22 @@ final class CampaignService
             return CampaignSummary::from($payload);
         }
 
-        return $this->get($campaignId);
+        $detail = $this->get($campaignId);
+
+        return new CampaignSummary(
+            id: $detail->id,
+            name: $detail->name,
+            subject: $detail->subject,
+            fromEmail: $detail->fromEmail,
+            fromName: $detail->fromName,
+            replyTo: $detail->replyTo,
+            status: $detail->status,
+            scheduledAt: $detail->scheduledAt,
+            totalRecipients: $detail->totalRecipients,
+            sentCount: $detail->sentCount,
+            sentAt: $detail->sentAt,
+            createdAt: $detail->createdAt,
+            stats: $detail->stats,
+        );
     }
 }
