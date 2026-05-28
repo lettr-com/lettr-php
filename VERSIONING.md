@@ -10,13 +10,15 @@ Lettr PHP SDK follows [Semantic Versioning](https://semver.org/) (SemVer).
 | MINOR     | New features (backward compatible)          | `1.0.0` -> `1.1.0` |
 | PATCH     | Bug fixes (backward compatible)             | `1.0.0` -> `1.0.1` |
 
-## Pre-1.0 Versioning (Current)
+## Pre-1.0 Versioning (Historical, through `0.1.x`)
 
-While in `0.x.x`:
+While the SDK was in `0.x.x`:
 
 - **Minor version bumps may contain breaking changes** (`0.1.0` -> `0.2.0`)
 - Patch versions are always backward compatible (`0.1.0` -> `0.1.1`)
-- This allows API refinement based on real-world usage
+- This allowed API refinement based on real-world usage
+
+The SDK is now post-1.0 and follows strict SemVer — breaking changes only land in major releases.
 
 ## Release Workflow
 
@@ -25,7 +27,7 @@ While in `0.x.x`:
 Add a new entry to `CHANGELOG.md` following [Keep a Changelog](https://keepachangelog.com/) format:
 
 ```markdown
-## [0.2.0] - 2024-01-15
+## [2.3.0] - 2026-07-01
 
 ### Added
 - New feature description
@@ -60,13 +62,13 @@ Add a new entry to `CHANGELOG.md` following [Keep a Changelog](https://keepachan
 
 ```php
 // src/Lettr.php
-public const VERSION = '0.2.0';
+public const VERSION = '2.3.0';
 ```
 
 ### 3. Create Git Tag and Push
 
 ```bash
-git tag -a v0.2.0 -m "Release 0.2.0"
+git tag -a v2.3.0 -m "Release 2.3.0"
 git push origin main --tags
 ```
 
@@ -78,20 +80,15 @@ GitHub Actions will automatically:
 
 ## Version History
 
-| Version | Type    | Description   |
-| :------ | :------ | :------------ |
-| `0.1.0` | Initial | First release |
+See [CHANGELOG.md](CHANGELOG.md) for the full notes; the table below lists each released minor/major and what it added.
 
-## Moving to 1.0.0
-
-The SDK will move to `1.0.0` when:
-
-- API is stable and proven in production
-- No planned breaking changes
-- Full test coverage
-- Complete documentation
-
-After `1.0.0`, breaking changes only happen in major versions.
+| Version | Type     | Highlights                                                                                     |
+| :------ | :------- | :--------------------------------------------------------------------------------------------- |
+| `2.2.0` | Minor    | Campaigns module (`$lettr->campaigns()` — list, get, events, send, schedule, unschedule)       |
+| `2.1.0` | Minor    | Audience module (lists, contacts, topics, properties, segments)                                |
+| `2.0.0` | Major    | Domain DTO cleanup, email list & events endpoints, `EmailService::sendTemplate()` reorder       |
+| `1.3.0` | Minor    | Custom email headers (`CustomHeaders` DTO, `EmailBuilder::headers()`/`addHeader()`)            |
+| `0.1.x` | Initial  | First releases (`0.1.0` – `0.1.3`)                                                              |
 
 ## Composer Installation
 
@@ -100,5 +97,5 @@ After `1.0.0`, breaking changes only happen in major versions.
 composer require lettr/lettr-php
 
 # Specific version
-composer require lettr/lettr-php:^0.1
+composer require lettr/lettr-php:^2.0
 ```

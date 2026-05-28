@@ -38,6 +38,14 @@ final class MockTransporter implements TransporterContract
         return $this->response;
     }
 
+    public function postExpectingEnvelope(string $uri, ?array $data = null): array
+    {
+        $this->lastUri = $uri;
+        $this->lastData = $data;
+
+        return $this->response;
+    }
+
     public function get(string $uri): array
     {
         $this->lastUri = $uri;

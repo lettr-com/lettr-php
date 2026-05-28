@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Lettr\Lettr;
 use Lettr\Services\AudienceService;
+use Lettr\Services\CampaignService;
 use Lettr\Services\DomainService;
 use Lettr\Services\EmailService;
 use Lettr\Services\ProjectService;
@@ -142,6 +143,27 @@ test('audience service is cached', function (): void {
     expect($audience1)->toBe($audience2);
 });
 
+test('can access campaigns service via method', function (): void {
+    $lettr = Lettr::client('test-api-key');
+
+    expect($lettr->campaigns())->toBeInstanceOf(CampaignService::class);
+});
+
+test('can access campaigns service via property', function (): void {
+    $lettr = Lettr::client('test-api-key');
+
+    expect($lettr->campaigns)->toBeInstanceOf(CampaignService::class);
+});
+
+test('campaigns service is cached', function (): void {
+    $lettr = Lettr::client('test-api-key');
+
+    $campaigns1 = $lettr->campaigns();
+    $campaigns2 = $lettr->campaigns();
+
+    expect($campaigns1)->toBe($campaigns2);
+});
+
 test('throws exception for unknown service', function (): void {
     $lettr = Lettr::client('test-api-key');
 
@@ -149,7 +171,7 @@ test('throws exception for unknown service', function (): void {
 })->throws(InvalidArgumentException::class, 'Unknown service: unknownService');
 
 test('has correct version constant', function (): void {
-    expect(Lettr::VERSION)->toBe('2.1.0');
+    expect(Lettr::VERSION)->toBe('2.2.0');
 });
 
 test('has correct base url constant', function (): void {

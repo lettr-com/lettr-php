@@ -7,6 +7,7 @@ namespace Lettr;
 use Lettr\Contracts\TransporterContract;
 use Lettr\Dto\RateLimit;
 use Lettr\Services\AudienceService;
+use Lettr\Services\CampaignService;
 use Lettr\Services\DomainService;
 use Lettr\Services\EmailService;
 use Lettr\Services\HealthService;
@@ -23,6 +24,7 @@ use Lettr\Services\WebhookService;
  * @property-read TemplateService $templates
  * @property-read ProjectService $projects
  * @property-read AudienceService $audience
+ * @property-read CampaignService $campaigns
  * @property-read HealthService $health
  */
 final class Lettr
@@ -30,7 +32,7 @@ final class Lettr
     /**
      * The current SDK version.
      */
-    public const VERSION = '2.1.0';
+    public const VERSION = '2.2.0';
 
     /**
      * The API base URL.
@@ -48,6 +50,8 @@ final class Lettr
     private ?ProjectService $projectService = null;
 
     private ?AudienceService $audienceService = null;
+
+    private ?CampaignService $campaignService = null;
 
     private ?HealthService $healthService = null;
 
@@ -136,6 +140,18 @@ final class Lettr
     }
 
     /**
+     * Get the campaign service (list, get, events, send, schedule, unschedule).
+     */
+    public function campaigns(): CampaignService
+    {
+        if ($this->campaignService === null) {
+            $this->campaignService = new CampaignService($this->client);
+        }
+
+        return $this->campaignService;
+    }
+
+    /**
      * Get the health service.
      */
     public function health(): HealthService
@@ -179,6 +195,7 @@ final class Lettr
             'templates' => $this->templates(),
             'projects' => $this->projects(),
             'audience' => $this->audience(),
+            'campaigns' => $this->campaigns(),
             'health' => $this->health(),
             default => throw new \InvalidArgumentException("Unknown service: {$name}"),
         };
