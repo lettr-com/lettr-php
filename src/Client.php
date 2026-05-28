@@ -57,6 +57,14 @@ final class Client implements TransporterContract
     /**
      * {@inheritDoc}
      */
+    public function postExpectingEnvelope(string $uri, ?array $data = null): array
+    {
+        return $this->request('POST', $uri, $data, null, unwrapEnvelope: false);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
     public function get(string $uri): array
     {
         return $this->request('GET', $uri);
@@ -127,8 +135,13 @@ final class Client implements TransporterContract
      *
      * @throws ApiException|TransporterException
      */
-    private function request(string $method, string $uri, ?array $data = null, ?array $query = null): array
-    {
+    private function request(
+        string $method,
+        string $uri,
+        ?array $data = null,
+        ?array $query = null,
+        bool $unwrapEnvelope = true,
+    ): array {
         $options = [
             'headers' => [
                 'Authorization' => 'Bearer '.$this->apiKey,
@@ -159,8 +172,10 @@ final class Client implements TransporterContract
             /** @var array<string, mixed> $decoded */
             $decoded = json_decode($contents, true, 512, JSON_THROW_ON_ERROR);
 
-            // Unwrap data envelope if present
-            if (isset($decoded['data']) && is_array($decoded['data'])) {
+            // Unwrap data envelope if present (skipped when the caller needs
+            // to distinguish "data omitted" from "data is the payload" —
+            // e.g. campaign action endpoints).
+            if ($unwrapEnvelope && isset($decoded['data']) && is_array($decoded['data'])) {
                 return $decoded['data'];
             }
 

@@ -517,6 +517,108 @@ $response = $lettr->templates()->getMergeTags(
 );
 ```
 
+## Campaigns
+
+Campaigns are read-only plus lifecycle actions (send, schedule, unschedule) — there is no create/update/delete via the API. All endpoints require an API key with the `campaigns:read` (reads) or `campaigns:write` (actions) scope.
+
+`list()` and `get()` both return `CampaignSummary` — the only difference is that `get()` populates `$campaign->htmlContent` (the rendered email body); list responses leave it `null`.
+
+`$campaign->status` is a `CampaignStatus` for spec-known values, or the raw string for any future status the SDK doesn't yet recognise — so a server-side enum extension can never crash deserialisation. The same shape applies to `$event->eventType` (typed `EventType|string`).
+
+### List Campaigns
+
+```php
+use Lettr\Dto\Campaign\ListCampaignsFilter;
+use Lettr\Enums\CampaignStatus;
+
+$response = $lettr->campaigns()->list();
+
+foreach ($response->campaigns as $campaign) {
+    echo $campaign->name;               // "Spring Sale"
+    echo $campaign->sentCount;          // 124
+    echo $campaign->stats->uniqueOpens; // engagement stats are embedded
+
+    // $campaign->status is CampaignStatus|string. Compare to enum cases
+    // for known statuses; fall back to the raw string for unknowns.
+    if ($campaign->status === CampaignStatus::Sent) {
+        echo 'Already delivered';
+    }
+}
+
+echo $response->pagination->total;
+echo $response->hasMore();
+
+// Filter by status and page
+$response = $lettr->campaigns()->list(
+    ListCampaignsFilter::create()->status(CampaignStatus::Sent)->page(2)->perPage(50),
+);
+```
+
+### Get a Campaign
+
+```php
+$campaign = $lettr->campaigns()->get('0193e6a8-1f3a-7c2a-b9e2-1aa1d2e5d3f0');
+
+echo $campaign->subject;
+echo $campaign->htmlContent; // rendered HTML content (populated only by get())
+echo $campaign->stats->clicks;
+```
+
+### List Campaign Events
+
+Engagement events use cursor-based pagination. Use the existing `EventType` enum — the campaigns endpoint only emits the seven engagement subset values (`injection`, `delivery`, `bounce`, `spam_complaint`, `open`, `click`, `list_unsubscribe`), but `$event->eventType` accepts an `EventType|string` so a forward-compatible value never crashes the loop.
+
+```php
+use Lettr\Dto\Campaign\ListCampaignEventsFilter;
+use Lettr\Enums\EventType;
+
+$cursor = null;
+
+do {
+    $response = $lettr->campaigns()->events('0193e6a8-...', ListCampaignEventsFilter::create()
+        ->eventType(EventType::Click)
+        ->startDate(new DateTimeImmutable('-7 days'))
+        ->cursor($cursor)); // null on first iteration is fine — the filter omits it from the query
+
+    foreach ($response->events as $event) {
+        echo $event->email;
+        echo $event->timestamp;
+        echo $event->targetLinkUrl; // for click events
+    }
+
+    $cursor = $response->nextCursor;
+} while ($response->hasMore());
+```
+
+### Send Now
+
+```php
+// Dispatch a draft campaign immediately (asynchronous; transitions to "preparing")
+$campaign = $lettr->campaigns()->send('0193e6a8-...');
+
+echo $campaign->id; // always a real CampaignSummary — the SDK refetches if the API omits the payload
+```
+
+### Schedule / Reschedule
+
+```php
+// Accepts a DateTimeInterface (formatted to ISO-8601 with offset) or a raw string.
+$campaign = $lettr->campaigns()->schedule(
+    '0193e6a8-...',
+    new DateTimeImmutable('2026-06-01 09:00:00', new DateTimeZone('+02:00')),
+);
+
+// Calling schedule() again on an already-scheduled campaign reschedules it.
+$lettr->campaigns()->schedule('0193e6a8-...', '2026-06-02T09:00:00Z');
+```
+
+### Unschedule
+
+```php
+// Cancel a scheduled send, returning the campaign to draft
+$campaign = $lettr->campaigns()->unschedule('0193e6a8-...');
+```
+
 ## Health Check
 
 ```php

@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.2.0] - 2026-05-28
+
+### Added
+- **Campaigns module** — 6 endpoints exposed under `$lettr->campaigns()`:
+  - `list(?ListCampaignsFilter)` — `GET /campaigns`, paginated, with embedded engagement stats; filter by `status` (`CampaignStatus`).
+  - `get(string $id)` — `GET /campaigns/{id}`, returns a `CampaignSummary` with `$campaign->htmlContent` populated (the rendered email body). List responses use the same `CampaignSummary` shape but leave `htmlContent` `null`.
+  - `events(string $id, ?ListCampaignEventsFilter)` — `GET /campaigns/{id}/events`, cursor-paginated engagement events. Filter accepts the existing `EventType` enum and tolerates `null`/empty cursors (omitted from the query). Pass `nextCursor` from the previous response or `null` on the first call.
+  - `send(string $id)` — `POST /campaigns/{id}/send`, dispatches a draft campaign now.
+  - `schedule(string $id, DateTimeInterface|string $scheduledAt)` — `POST /campaigns/{id}/schedule`. Schedules a draft for future delivery **or reschedules an already-scheduled campaign**. A `DateTimeInterface` is formatted to ISO-8601 with offset; strings pass through unchanged.
+  - `unschedule(string $id)` — `POST /campaigns/{id}/unschedule`, returns a scheduled campaign to draft.
+  - The three action methods return a non-null `CampaignSummary`. If the API omits the campaign payload from the action response, the SDK transparently refetches via `get($id)` so callers never see `null`.
+- New DTOs under `Dto\Campaign\` (`CampaignSummary`, `CampaignStats`, `CampaignEvent`, `ListCampaignsFilter`, `ListCampaignEventsFilter`).
+- New `CampaignCollection` (typed `findById()` only; shared boilerplate lives on the new abstract `Lettr\Collections\Collection` base), plus the `ListCampaignsResponse` and `ListCampaignEventsResponse` wrappers.
+- New `Lettr\Responses\Pagination` shared base — `AudiencePagination`, `ProjectPagination`, and `TemplatePagination` are now thin subclasses of it, eliminating the per-resource duplication and providing the same class for the campaigns list response.
+- New enum: `CampaignStatus` (`draft`, `scheduled`, `preparing`, `in_review`, `sending`, `sent`, `failed`). The existing `Enums\EventType` is reused for campaign events.
+- `$campaign->status` is typed `CampaignStatus|string` and `$event->eventType` is typed `EventType|string` — unknown values from a server-side enum extension are preserved as raw strings instead of throwing `ValueError`.
+- `TransporterContract::postExpectingEnvelope(string $uri, ?array $data = null): array` — returns the full decoded response body without unwrapping the `data` envelope, and accepts `null` to omit the request body entirely (no `[]` JSON body for endpoints that take no input). Used by campaign action methods.
+
 ## [2.1.0] - 2026-05-22
 
 ### Added

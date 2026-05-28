@@ -19,6 +19,22 @@ interface TransporterContract
     public function post(string $uri, array $data): array;
 
     /**
+     * Send a POST request and return the full decoded response body WITHOUT
+     * unwrapping a top-level `data` envelope.
+     *
+     * Use for endpoints whose response shape is `{message, data?: ...}` and
+     * where the caller must distinguish "data omitted" from "data is the
+     * payload" — e.g. campaign send/schedule/unschedule. Pass `null` to omit
+     * the request body entirely (no Content-Type, no `[]` body).
+     *
+     * @param  array<string, mixed>|null  $data
+     * @return array<string, mixed>
+     *
+     * @throws LettrException
+     */
+    public function postExpectingEnvelope(string $uri, ?array $data = null): array;
+
+    /**
      * Send a GET request to the API.
      *
      * @return array<string, mixed>
