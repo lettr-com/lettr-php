@@ -30,9 +30,13 @@ use Lettr\Services\WebhookService;
 final class Lettr
 {
     /**
-     * The current SDK version.
+     * The current SDK version, also sent as the User-Agent.
+     *
+     * @deprecated Read for backward compatibility only; this constant is the
+     *             single source of truth for the version and will be removed in
+     *             a future major release.
      */
-    public const VERSION = '2.3.0';
+    public const VERSION = '2.4.0';
 
     /**
      * The API base URL.
@@ -61,10 +65,14 @@ final class Lettr
 
     /**
      * Create a new Lettr instance with the given API key.
+     *
+     * @param  string|null  $userAgentSuffix  Optional identifier appended to the
+     *                                        User-Agent by wrapping packages
+     *                                        (e.g. "lettr-laravel/2.2.0").
      */
-    public static function client(string $apiKey): self
+    public static function client(string $apiKey, ?string $userAgentSuffix = null): self
     {
-        return new self(new Client($apiKey));
+        return new self(new Client($apiKey, $userAgentSuffix));
     }
 
     /**

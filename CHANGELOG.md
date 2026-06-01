@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.4.0] - 2026-06-01
+
+### Added
+- Optional `$userAgentSuffix` parameter on `Lettr::client()` and `Client::__construct()` — appended to the outgoing `User-Agent` header (e.g. `lettr-php/2.4.0 lettr-laravel/2.2.0`) so wrapping packages can identify themselves. Control characters (incl. CR/LF) are stripped from the suffix to prevent header injection.
+
 ## [2.3.0] - 2026-05-28
 
 ### Added

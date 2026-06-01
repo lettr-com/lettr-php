@@ -31,14 +31,28 @@ final class Client implements TransporterContract
 
     private readonly string $apiKey;
 
+    private readonly string $userAgent;
+
     /** @var array<string, string|string[]> */
     private array $lastHeaders = [];
 
     private ?int $lastStatusCode = null;
 
-    public function __construct(string $apiKey)
+    /**
+     * @param  string|null  $userAgentSuffix  Optional identifier appended to the
+     *                                        User-Agent by wrapping packages
+     *                                        (e.g. "lettr-laravel/2.2.0").
+     */
+    public function __construct(string $apiKey, ?string $userAgentSuffix = null)
     {
         $this->apiKey = $apiKey;
+        // Strip control characters (incl. CR/LF) so a caller-supplied suffix
+        // can't inject extra headers, then trim surrounding whitespace.
+        $suffix = $userAgentSuffix !== null
+            ? trim((string) preg_replace('/[\x00-\x1F\x7F]/', '', $userAgentSuffix))
+            : '';
+        $this->userAgent = 'lettr-php/'.Lettr::VERSION
+            .($suffix !== '' ? ' '.$suffix : '');
         $this->httpClient = new GuzzleClient([
             'base_uri' => Lettr::BASE_URL,
             'timeout' => 30,
@@ -147,7 +161,7 @@ final class Client implements TransporterContract
                 'Authorization' => 'Bearer '.$this->apiKey,
                 'Content-Type' => 'application/json',
                 'Accept' => 'application/json',
-                'User-Agent' => 'lettr-php/'.Lettr::VERSION,
+                'User-Agent' => $this->userAgent,
             ],
         ];
 
