@@ -246,24 +246,6 @@ The `href` must use `https://` — when clicked, the user will be redirected to 
 
 2. **Listen for unsubscribe events** via webhooks — subscribe to `link_unsubscribe` and `list_unsubscribe` event types to process unsubscribes in your application.
 
-## Documentation
-
-Full guides, every method, and complete request/response details live in the docs:
-
-📚 **[docs.lettr.com/quickstart/php](https://docs.lettr.com/quickstart/php/introduction)**
-
-| Topic | Guide |
-|-|-|
-| Install & client setup | [Installation](https://docs.lettr.com/quickstart/php/installation) |
-| Sending — HTML, text, templates, attachments, tracking, errors | [Sending Emails](https://docs.lettr.com/quickstart/php/sending-emails) |
-| Managing templates & merge tags | [Templates](https://docs.lettr.com/quickstart/php/templates) |
-| Add, verify, and manage sending domains | [Domains](https://docs.lettr.com/quickstart/php/domains) |
-| Webhook endpoints for delivery & engagement events | [Webhooks](https://docs.lettr.com/quickstart/php/webhooks) |
-| Lists, contacts, topics, properties, segments | [Audience](https://docs.lettr.com/quickstart/php/audience) |
-| List, send, and schedule campaigns | [Campaigns](https://docs.lettr.com/quickstart/php/campaigns) |
-| Endpoint reference (params & schemas) | [API Reference](https://docs.lettr.com/api-reference/introduction) |
-
-
 ## Health Check
 
 ```php
@@ -415,6 +397,24 @@ Free tier teams have monthly and daily sending limits. Quota headers are include
 | `X-Daily-Reset` | Unix timestamp when daily quota resets |
 
 Quota information is available on successful responses via `$response->quota` and on quota exceeded errors via the `QuotaExceededException`.
+
+## Documentation
+
+Full guides, every method, and complete request/response details live in the docs:
+
+📚 **[docs.lettr.com/quickstart/php](https://docs.lettr.com/quickstart/php/introduction)**
+
+| Topic | Guide |
+|-|-|
+| Install & client setup | [Installation](https://docs.lettr.com/quickstart/php/installation) |
+| Sending — HTML, text, templates, attachments, tracking, errors | [Sending Emails](https://docs.lettr.com/quickstart/php/sending-emails) |
+| Managing templates & merge tags | [Templates](https://docs.lettr.com/quickstart/php/templates) |
+| Add, verify, and manage sending domains | [Domains](https://docs.lettr.com/quickstart/php/domains) |
+| Webhook endpoints for delivery & engagement events | [Webhooks](https://docs.lettr.com/quickstart/php/webhooks) |
+| Lists, contacts, topics, properties, segments | [Audience](https://docs.lettr.com/quickstart/php/audience) |
+| List, send, and schedule campaigns | [Campaigns](https://docs.lettr.com/quickstart/php/campaigns) |
+| Endpoint reference (params & schemas) | [API Reference](https://docs.lettr.com/api-reference/introduction) |
+
 
 ## Development
 
