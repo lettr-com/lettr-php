@@ -14,6 +14,7 @@ use Lettr\Dto\Email\SendEmailData;
 use Lettr\Dto\Email\SubstitutionData;
 use Lettr\Exceptions\InvalidValueException;
 use Lettr\ValueObjects\EmailAddress;
+use Lettr\ValueObjects\IdempotencyKey;
 use Lettr\ValueObjects\Subject;
 use Lettr\ValueObjects\Tag;
 
@@ -67,6 +68,8 @@ final class EmailBuilder
     private ?string $ampHtml = null;
 
     private ?string $scheduledAt = null;
+
+    private ?IdempotencyKey $idempotencyKey = null;
 
     public function __construct() {}
 
@@ -431,6 +434,23 @@ final class EmailBuilder
      *
      * @throws InvalidValueException
      */
+    /**
+     * Attach an idempotency key, so a retry of this send cannot deliver twice.
+     *
+     * Use a value that is stable for one logical send - an order id, a job id,
+     * anything you can regenerate on the retry. A fresh value per attempt
+     * protects nothing.
+     *
+     * @throws InvalidValueException when the key is not 1-255 characters of
+     *                               letters, digits, periods, underscores or hyphens
+     */
+    public function idempotencyKey(IdempotencyKey|string $key): self
+    {
+        $this->idempotencyKey = $key instanceof IdempotencyKey ? $key : new IdempotencyKey($key);
+
+        return $this;
+    }
+
     public function build(): SendEmailData
     {
         if ($this->from === null) {
@@ -478,6 +498,7 @@ final class EmailBuilder
             templateVersion: $this->templateVersion,
             ampHtml: $this->ampHtml,
             scheduledAt: $this->scheduledAt,
+            idempotencyKey: $this->idempotencyKey,
         );
     }
 

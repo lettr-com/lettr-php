@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Lettr\Dto\Template;
 
+use Lettr\Enums\TemplatePreparationStatus;
 use Lettr\Enums\TemplatePurpose;
 use Lettr\ValueObjects\Timestamp;
 
@@ -21,6 +22,7 @@ final readonly class Template
         public Timestamp $createdAt,
         public Timestamp $updatedAt,
         public TemplatePurpose $purpose = TemplatePurpose::Transactional,
+        public TemplatePreparationStatus $preparationStatus = TemplatePreparationStatus::Ready,
     ) {}
 
     /**
@@ -33,6 +35,7 @@ final readonly class Template
      *     project_id: int,
      *     folder_id?: int|null,
      *     purpose?: string|null,
+     *     preparation_status?: string|null,
      *     created_at: string,
      *     updated_at: string,
      * }  $data
@@ -48,6 +51,7 @@ final readonly class Template
             createdAt: Timestamp::fromString($data['created_at']),
             updatedAt: Timestamp::fromString($data['updated_at']),
             purpose: TemplatePurpose::tryFrom((string) ($data['purpose'] ?? '')) ?? TemplatePurpose::Transactional,
+            preparationStatus: TemplatePreparationStatus::fromResponse($data['preparation_status'] ?? null),
         );
     }
 }

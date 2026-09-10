@@ -230,6 +230,58 @@ $email = $lettr->emails()->create()
     ->withSubstitutions(true);
 ```
 
+### Idempotent Sends
+
+Attach an `Idempotency-Key` and a retry of the same send returns the original
+result instead of delivering a second email:
+
+```php
+use Lettr\Exceptions\IdempotencyConflictException;
+use Lettr\Exceptions\IdempotencyInProgressException;
+
+$response = $lettr->emails()->send(
+    $lettr->emails()->create()
+        ->from('sender@example.com')
+        ->to(['customer@example.com'])
+        ->subject('Your order')
+        ->html($html),
+    idempotencyKey: 'order-confirmation-12345',
+);
+
+$response->replayed; // true when this replayed an earlier send — no second email went out
+```
+
+**You choose the key; the SDK never generates one.** It only works if the same
+key is used on both attempts, and the SDK does not retry — one `send()` is one
+HTTP request — so the retry is yours. Use something stable for one logical send:
+an order id, a job id, anything you can regenerate. A fresh value per attempt
+protects nothing.
+
+If you have no natural id, `IdempotencyKey::forPayload($data)` derives one from
+the payload. Note the trade: two *deliberately* identical sends within 24 hours
+then collapse into one.
+
+Handle the two conflicts differently — one is retryable and the other is not:
+
+```php
+try {
+    $lettr->emails()->send($email, idempotencyKey: $key);
+} catch (IdempotencyInProgressException $e) {
+    // The original send is still running. Retry with the SAME key.
+    sleep($e->retryAfter ?? 1);
+} catch (IdempotencyConflictException $e) {
+    // That key was already used with a different payload. Retrying fails forever.
+}
+```
+
+Both extend `ConflictException`, so existing handlers keep catching them.
+
+| | |
+| --- | --- |
+| Format | 1–255 characters, `[A-Za-z0-9._-]` — validated locally before the request |
+| Retention | 24 hours |
+| Scope | Per team **and** API key — the same string through a different API key is a different key |
+
 ### Marketing Emails & Unsubscribe
 
 When sending marketing emails (`transactional(false)`), the email provider automatically adds `List-Unsubscribe` and `List-Unsubscribe-Post` headers for compliance. To allow recipients to unsubscribe from your marketing emails:

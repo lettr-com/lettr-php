@@ -17,6 +17,11 @@ final readonly class SendEmailResponse
         public int $accepted,
         public int $rejected,
         public ?SendingQuota $quota = null,
+        /**
+         * True when this response replayed an earlier send with the same
+         * idempotency key - no second email went out. Still a success.
+         */
+        public bool $replayed = false,
     ) {}
 
     /**
@@ -36,7 +41,26 @@ final readonly class SendEmailResponse
             accepted: $data['accepted'],
             rejected: $data['rejected'],
             quota: SendingQuota::fromHeaders($headers),
+            replayed: self::replayedFromHeaders($headers),
         );
+    }
+
+    /**
+     * @param  array<string, string|string[]>  $headers
+     */
+    private static function replayedFromHeaders(array $headers): bool
+    {
+        foreach ($headers as $name => $value) {
+            if (strcasecmp($name, 'Idempotency-Replayed') !== 0) {
+                continue;
+            }
+
+            $first = is_array($value) ? ($value[0] ?? '') : $value;
+
+            return strtolower(trim($first)) === 'true';
+        }
+
+        return false;
     }
 
     /**

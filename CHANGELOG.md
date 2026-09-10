@@ -4,6 +4,50 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.7.0] - 2026-09-09
+
+Two additions: knowing when an imported template is actually ready, and not sending the same email twice. Everything is additive — code written against 2.6.0 keeps compiling and sends byte-identical requests.
+
+### Added
+
+- **`preparation_status` on every template response** — `Template`, `TemplateDetail`, `CreatedTemplate` and `UpdatedTemplate`, typed as the new `Enums\TemplatePreparationStatus` (`Pending`, `Ready`, `Failed`).
+
+  Creating or updating a template through the API defers image migration and HTML rendering to a background job. On a create with JSON there is no HTML at all until that finishes. On an **update** the previous render stays in place, so the template is still sendable — but it is serving the *old* content until this reads `Ready`. There is a `->isSettled()` helper for the "is what I sent what will go out" question.
+
+  Read it as `Ready` when the API omits the key, not `Pending`: an older API deployment simply did not have the field, and every template with HTML was usable there. Defaulting to `Pending` would make an old API look like a stalled queue and hang anything that waits for readiness.
+
+- **`ListTemplatesFilter::folderId()`** — narrows the list to one folder. This is what makes reconciling a bulk import cheap: one `perPage(100)` call for the whole folder instead of a detail call per template, each of which drags the full HTML payload against the same rate limit. A folder that is not in the resolved project answers **404**, not an empty list, so a typo cannot be misread as "nothing arrived yet".
+
+- **`Idempotency-Key` on sends.** `EmailService::send()` takes an optional key, and `EmailBuilder::idempotencyKey()` sets one fluently:
+
+  ```php
+  $lettr->emails()->send(
+      $lettr->emails()->create()->from(...)->to(...)->subject(...)->html(...),
+      idempotencyKey: 'order-confirmation-12345',
+  );
+  ```
+
+  Reuse the same key when you retry and the API returns the original result instead of sending a second email. **You supply the key; the SDK never generates one.** The SDK does not retry — one `send()` is one HTTP request — so the retry is yours, and only you know that two calls are the same logical send. A key minted inside `send()` would differ on every attempt and protect nothing.
+
+  New `ValueObjects\IdempotencyKey` validates the format (1–255 characters of `[A-Za-z0-9._-]`) locally, so a malformed key throws `InvalidValueException` on your machine instead of costing a round trip and a 422. `IdempotencyKey::forPayload()` derives a deterministic key for callers with no natural id — opt into it knowingly, because two *deliberately* identical sends within the provider's 24 hour window then collapse into one.
+
+- **`SendEmailResponse::$replayed`** — true when the response replayed an earlier send under the same key. No second email went out, and it is still a success.
+
+- **Two distinguishable 409s**, because one is safe to retry and the other is not:
+  - `IdempotencyInProgressException` — the original send is still processing. Retry with the **same** key, after `->retryAfter` seconds. A fresh key would send a second email.
+  - `IdempotencyConflictException` — that key was already used with a different payload. A bug on your side; retrying fails forever.
+
+  Both extend `ConflictException`, so existing `catch (ConflictException)` and `catch (ApiException)` handlers keep working unchanged.
+
+- **`Contracts\SupportsRequestHeaders`** — a small second interface, implemented by `Client`, for sending per-request headers.
+
+### Notes
+
+- **`TransporterContract` is untouched**, so custom transporters keep compiling. Sending a header needed a way through the transporter, and adding an argument to `TransporterContract::post()` would have broken every class implementing it — a major release for a feature most callers will not use. The trade is that a transporter which does not implement `SupportsRequestHeaders` silently sends no idempotency key rather than failing; add the interface and one method to opt in.
+- **Keys are scoped per team *and* API key.** The same string sent through a different API key is a different key and will not deduplicate. Worth knowing if you run several workers with separate keys.
+- The provider retains a key for **24 hours**.
+- `SendEmailData` carries `idempotencyKey`, but `toArray()` deliberately leaves it out — it travels as a header, not in the body.
+
 ## [2.6.0] - 2026-09-07
 
 Covers the marketing side of templates: a template now says which module it belongs to, and the folders it can be filed into are listable. Everything here is additive — code written against 2.5.2 keeps compiling and sends byte-identical requests.

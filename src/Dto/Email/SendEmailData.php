@@ -8,6 +8,7 @@ use Lettr\Collections\AttachmentCollection;
 use Lettr\Collections\EmailAddressCollection;
 use Lettr\Contracts\Arrayable;
 use Lettr\ValueObjects\EmailAddress;
+use Lettr\ValueObjects\IdempotencyKey;
 use Lettr\ValueObjects\Subject;
 use Lettr\ValueObjects\Tag;
 
@@ -36,6 +37,11 @@ final readonly class SendEmailData implements Arrayable
         public ?int $templateVersion = null,
         public ?string $ampHtml = null,
         public ?string $scheduledAt = null,
+        /**
+         * Sent as the `Idempotency-Key` header, not in the body - which is why
+         * `toArray()` leaves it out. See {@see IdempotencyKey}.
+         */
+        public ?IdempotencyKey $idempotencyKey = null,
     ) {}
 
     /**
@@ -62,6 +68,7 @@ final readonly class SendEmailData implements Arrayable
      *     template_version?: int|null,
      *     amp_html?: string|null,
      *     scheduled_at?: string|null,
+     *     idempotency_key?: string|null,
      * }  $data
      */
     public static function from(array $data): self
@@ -92,11 +99,15 @@ final readonly class SendEmailData implements Arrayable
             templateVersion: $data['template_version'] ?? null,
             ampHtml: $data['amp_html'] ?? null,
             scheduledAt: $data['scheduled_at'] ?? null,
+            idempotencyKey: isset($data['idempotency_key']) ? new IdempotencyKey($data['idempotency_key']) : null,
         );
     }
 
     /**
      * Convert the DTO to an array for API request.
+     *
+     * `idempotencyKey` is deliberately absent: it travels as a header, and the
+     * API would reject an unknown body field.
      *
      * @return array<string, mixed>
      */

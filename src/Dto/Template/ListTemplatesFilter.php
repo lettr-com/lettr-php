@@ -17,6 +17,7 @@ final readonly class ListTemplatesFilter implements Arrayable
         public ?int $perPage = null,
         public ?int $page = null,
         public ?TemplatePurpose $purpose = null,
+        public ?int $folderId = null,
     ) {}
 
     /**
@@ -37,6 +38,27 @@ final readonly class ListTemplatesFilter implements Arrayable
             perPage: $this->perPage,
             page: $this->page,
             purpose: $this->purpose,
+            folderId: $this->folderId,
+        );
+    }
+
+    /**
+     * Narrow the list to one folder of the resolved project.
+     *
+     * This is what makes reconciling a bulk import cheap: one `perPage(100)`
+     * call for the whole folder instead of a detail call per template, each of
+     * which drags the full HTML payload against the same rate limit.
+     *
+     * A folder that is not in the resolved project is a 404, not an empty list.
+     */
+    public function folderId(int $folderId): self
+    {
+        return new self(
+            projectId: $this->projectId,
+            perPage: $this->perPage,
+            page: $this->page,
+            purpose: $this->purpose,
+            folderId: $folderId,
         );
     }
 
@@ -50,6 +72,7 @@ final readonly class ListTemplatesFilter implements Arrayable
             perPage: $this->perPage,
             page: $this->page,
             purpose: $purpose,
+            folderId: $this->folderId,
         );
     }
 
@@ -63,6 +86,7 @@ final readonly class ListTemplatesFilter implements Arrayable
             perPage: $perPage,
             page: $this->page,
             purpose: $this->purpose,
+            folderId: $this->folderId,
         );
     }
 
@@ -76,6 +100,7 @@ final readonly class ListTemplatesFilter implements Arrayable
             perPage: $this->perPage,
             page: $page,
             purpose: $this->purpose,
+            folderId: $this->folderId,
         );
     }
 
@@ -88,6 +113,10 @@ final readonly class ListTemplatesFilter implements Arrayable
 
         if ($this->projectId !== null) {
             $params['project_id'] = $this->projectId;
+        }
+
+        if ($this->folderId !== null) {
+            $params['folder_id'] = $this->folderId;
         }
 
         if ($this->purpose !== null) {
@@ -111,6 +140,7 @@ final readonly class ListTemplatesFilter implements Arrayable
     public function hasFilters(): bool
     {
         return $this->projectId !== null
+            || $this->folderId !== null
             || $this->purpose !== null
             || $this->perPage !== null
             || $this->page !== null;

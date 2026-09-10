@@ -12,6 +12,7 @@ use Lettr\Dto\Template\Template;
 use Lettr\Dto\Template\TemplateDetail;
 use Lettr\Dto\Template\UpdatedTemplate;
 use Lettr\Dto\Template\UpdateTemplateData;
+use Lettr\Enums\TemplatePreparationStatus;
 use Lettr\Enums\TemplatePurpose;
 use Lettr\Responses\GetMergeTagsResponse;
 use Lettr\Responses\GetTemplateHtmlResponse;
@@ -740,4 +741,150 @@ test('TemplatePurpose labels', function (): void {
     expect(TemplatePurpose::Transactional->label())->toBe('Transactional')
         ->and(TemplatePurpose::Campaign->label())->toBe('Campaign')
         ->and(TemplatePurpose::from('campaign'))->toBe(TemplatePurpose::Campaign);
+});
+
+test('reads the preparation status off every template response', function (): void {
+    $template = Template::from([
+        'id' => 1,
+        'name' => 'Welcome Email',
+        'slug' => 'welcome-email',
+        'project_id' => 123,
+        'folder_id' => 5,
+        'purpose' => 'transactional',
+        'preparation_status' => 'pending',
+        'created_at' => '2024-01-01T12:00:00+00:00',
+        'updated_at' => '2024-01-15T12:00:00+00:00',
+    ]);
+
+    expect($template->preparationStatus)->toBe(TemplatePreparationStatus::Pending)
+        ->and($template->preparationStatus->isSettled())->toBeFalse();
+});
+
+/**
+ * An API deployment that predates the field returns nothing, and every template
+ * with HTML was simply usable there. Defaulting to Pending would make an older
+ * API look like a stalled queue and hang a caller waiting for readiness.
+ */
+test('a response without preparation_status reads as ready', function (): void {
+    $template = Template::from([
+        'id' => 1,
+        'name' => 'Welcome Email',
+        'slug' => 'welcome-email',
+        'project_id' => 123,
+        'folder_id' => 5,
+        'created_at' => '2024-01-01T12:00:00+00:00',
+        'updated_at' => '2024-01-15T12:00:00+00:00',
+    ]);
+
+    expect($template->preparationStatus)->toBe(TemplatePreparationStatus::Ready)
+        ->and($template->preparationStatus->isSettled())->toBeTrue();
+});
+
+test('an unknown preparation status reads as ready rather than throwing', function (): void {
+    expect(TemplatePreparationStatus::fromResponse('something-new'))
+        ->toBe(TemplatePreparationStatus::Ready);
+});
+
+test('get method returns the preparation status', function (): void {
+    $transporter = new MockTransporter;
+    $transporter->response = [
+        'id' => 1,
+        'name' => 'Still Rendering',
+        'slug' => 'still-rendering',
+        'project_id' => 123,
+        'folder_id' => 5,
+        'purpose' => 'campaign',
+        'preparation_status' => 'failed',
+        'active_version' => 1,
+        'versions_count' => 1,
+        'html' => null,
+        'json' => null,
+        'created_at' => '2024-01-01T12:00:00+00:00',
+        'updated_at' => '2024-01-15T12:00:00+00:00',
+    ];
+
+    $service = new TemplateService($transporter);
+
+    expect($service->get('still-rendering')->preparationStatus)
+        ->toBe(TemplatePreparationStatus::Failed);
+});
+
+test('create and update responses carry the preparation status', function (): void {
+    $transporter = new MockTransporter;
+    $transporter->response = [
+        'id' => 10,
+        'name' => 'Imported',
+        'slug' => 'imported',
+        'project_id' => 123,
+        'folder_id' => 5,
+        'purpose' => 'transactional',
+        'preparation_status' => 'pending',
+        'active_version' => 1,
+        'merge_tags' => [],
+        'created_at' => '2024-01-20T12:00:00+00:00',
+        'updated_at' => '2024-01-20T12:00:00+00:00',
+    ];
+
+    $service = new TemplateService($transporter);
+
+    expect($service->create(new CreateTemplateData(name: 'Imported', json: '{}'))->preparationStatus)
+        ->toBe(TemplatePreparationStatus::Pending)
+        ->and($service->update('imported', new UpdateTemplateData(name: 'Imported'))->preparationStatus)
+        ->toBe(TemplatePreparationStatus::Pending);
+});
+
+test('ListTemplatesFilter carries the folder id', function (): void {
+    $filter = ListTemplatesFilter::create()
+        ->projectId(5)
+        ->folderId(10)
+        ->perPage(100);
+
+    expect($filter->folderId)->toBe(10)
+        ->and($filter->hasFilters())->toBeTrue()
+        ->and($filter->toArray())->toBe([
+            'project_id' => 5,
+            'folder_id' => 10,
+            'per_page' => 100,
+        ]);
+});
+
+test('the folder id survives every other fluent setter', function (): void {
+    $filter = ListTemplatesFilter::create()
+        ->folderId(10)
+        ->projectId(5)
+        ->purpose(TemplatePurpose::Campaign)
+        ->perPage(100)
+        ->page(2);
+
+    expect($filter->folderId)->toBe(10);
+});
+
+test('list method sends the folder filter', function (): void {
+    $transporter = new MockTransporter;
+    $transporter->response = [
+        'templates' => [],
+        'pagination' => ['current_page' => 1, 'last_page' => 1, 'per_page' => 100, 'total' => 0],
+    ];
+
+    $service = new TemplateService($transporter);
+    $service->list(ListTemplatesFilter::create()->folderId(10)->perPage(100));
+
+    expect($transporter->lastQuery)->toBe([
+        'folder_id' => 10,
+        'per_page' => 100,
+    ]);
+});
+
+test('list method sends no folder_id key when it is unset', function (): void {
+    $transporter = new MockTransporter;
+    $transporter->response = [
+        'templates' => [],
+        'pagination' => ['current_page' => 1, 'last_page' => 1, 'per_page' => 25, 'total' => 0],
+    ];
+
+    $service = new TemplateService($transporter);
+    $service->list(ListTemplatesFilter::create()->projectId(5));
+
+    expect($transporter->lastQuery)->toBe(['project_id' => 5])
+        ->and($transporter->lastQuery)->not->toHaveKey('folder_id');
 });

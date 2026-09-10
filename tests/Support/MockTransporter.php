@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Support;
 
+use Lettr\Contracts\SupportsRequestHeaders;
 use Lettr\Contracts\TransporterContract;
 use Throwable;
 
@@ -15,7 +16,7 @@ use Throwable;
  * to make every request raise that exception instead, for testing how services
  * translate API errors.
  */
-final class MockTransporter implements TransporterContract
+final class MockTransporter implements SupportsRequestHeaders, TransporterContract
 {
     public ?Throwable $throws = null;
 
@@ -26,6 +27,9 @@ final class MockTransporter implements TransporterContract
 
     /** @var array<string, mixed>|null */
     public ?array $lastQuery = null;
+
+    /** @var array<string, string> */
+    public array $lastHeaders = [];
 
     /** @var array<string, mixed> */
     public array $response = [];
@@ -45,6 +49,13 @@ final class MockTransporter implements TransporterContract
         }
 
         return $this->response;
+    }
+
+    public function postWithHeaders(string $uri, array $data, array $headers): array
+    {
+        $this->lastHeaders = $headers;
+
+        return $this->post($uri, $data);
     }
 
     public function postExpectingEnvelope(string $uri, ?array $data = null): array

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Lettr\Services;
 
 use Lettr\Builders\EmailBuilder;
+use Lettr\Contracts\SupportsRequestHeaders;
 use Lettr\Contracts\TransporterContract;
 use Lettr\Dto\Email\ListEmailEventsFilter;
 use Lettr\Dto\Email\ListEmailsFilter;
@@ -14,6 +15,7 @@ use Lettr\Dto\Email\TransmissionDetail;
 use Lettr\Responses\ListEmailEventsResponse;
 use Lettr\Responses\ListEmailsResponse;
 use Lettr\ValueObjects\EmailAddress;
+use Lettr\ValueObjects\IdempotencyKey;
 use Lettr\ValueObjects\RequestId;
 
 /**
@@ -42,12 +44,22 @@ final class EmailService
     /**
      * Send an email.
      */
-    public function send(SendEmailData|EmailBuilder $data): SendEmailResponse
+    public function send(SendEmailData|EmailBuilder $data, IdempotencyKey|string|null $idempotencyKey = null): SendEmailResponse
     {
         $emailData = $data instanceof EmailBuilder ? $data->build() : $data;
 
+        $key = match (true) {
+            $idempotencyKey instanceof IdempotencyKey => $idempotencyKey,
+            is_string($idempotencyKey) => new IdempotencyKey($idempotencyKey),
+            default => $emailData->idempotencyKey,
+        };
+
+        // A transporter that cannot carry headers takes the plain path rather
+        // than failing - see SupportsRequestHeaders for why that is the trade.
         /** @var array{request_id: string, accepted: int, rejected: int} $response */
-        $response = $this->transporter->post(self::EMAILS_ENDPOINT, $emailData->toArray());
+        $response = ($key !== null && $this->transporter instanceof SupportsRequestHeaders)
+            ? $this->transporter->postWithHeaders(self::EMAILS_ENDPOINT, $emailData->toArray(), $key->toArray())
+            : $this->transporter->post(self::EMAILS_ENDPOINT, $emailData->toArray());
 
         return SendEmailResponse::from($response, $this->transporter->lastResponseHeaders());
     }

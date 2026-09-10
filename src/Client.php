@@ -8,12 +8,15 @@ use GuzzleHttp\Client as GuzzleClient;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\GuzzleException;
 use JsonException;
+use Lettr\Contracts\SupportsRequestHeaders;
 use Lettr\Contracts\TransporterContract;
 use Lettr\Dto\RateLimit;
 use Lettr\Dto\SendingQuota;
 use Lettr\Exceptions\ApiException;
 use Lettr\Exceptions\ConflictException;
 use Lettr\Exceptions\ForbiddenException;
+use Lettr\Exceptions\IdempotencyConflictException;
+use Lettr\Exceptions\IdempotencyInProgressException;
 use Lettr\Exceptions\NotFoundException;
 use Lettr\Exceptions\QuotaExceededException;
 use Lettr\Exceptions\RateLimitException;
@@ -25,7 +28,7 @@ use Psr\Http\Message\ResponseInterface;
 /**
  * HTTP Client for Lettr API.
  */
-final class Client implements TransporterContract
+final class Client implements SupportsRequestHeaders, TransporterContract
 {
     private readonly ClientInterface $httpClient;
 
@@ -66,6 +69,14 @@ final class Client implements TransporterContract
     public function post(string $uri, array $data): array
     {
         return $this->request('POST', $uri, $data);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function postWithHeaders(string $uri, array $data, array $headers): array
+    {
+        return $this->request('POST', $uri, $data, headers: $headers);
     }
 
     /**
@@ -145,6 +156,7 @@ final class Client implements TransporterContract
      *
      * @param  array<string, mixed>|null  $data
      * @param  array<string, mixed>|null  $query
+     * @param  array<string, string>  $headers
      * @return array<string, mixed>
      *
      * @throws ApiException|TransporterException
@@ -155,6 +167,7 @@ final class Client implements TransporterContract
         ?array $data = null,
         ?array $query = null,
         bool $unwrapEnvelope = true,
+        array $headers = [],
     ): array {
         $options = [
             'headers' => [
@@ -162,6 +175,7 @@ final class Client implements TransporterContract
                 'Content-Type' => 'application/json',
                 'Accept' => 'application/json',
                 'User-Agent' => $this->userAgent,
+                ...$headers,
             ],
         ];
 
@@ -227,7 +241,7 @@ final class Client implements TransporterContract
                 401 => throw new UnauthorizedException($message, $e, $errorCode),
                 403 => throw new ForbiddenException($message, $e, $errorCode),
                 404 => throw new NotFoundException($message, $e, $errorCode),
-                409 => throw new ConflictException($message, $e, $errorCode),
+                409 => $this->handleConflict($response, $message, $e, $errorCode),
                 422 => throw new ValidationException(
                     $message,
                     /** @var array<string, array<string>> */
@@ -241,6 +255,33 @@ final class Client implements TransporterContract
         }
 
         throw new TransporterException($e->getMessage(), (int) $e->getCode(), $e);
+    }
+
+    /**
+     * Handle 409 responses.
+     *
+     * The two idempotency conflicts need telling apart, because one is
+     * retryable and the other is not: `idempotency_in_progress` means the
+     * original send is still running and should be retried with the *same*
+     * key, while `idempotency_key_conflict` means that key was already used
+     * for a different payload and retrying will fail forever.
+     *
+     * @throws ConflictException
+     */
+    private function handleConflict(ResponseInterface $response, string $message, GuzzleException $e, ?string $errorCode): never
+    {
+        if ($errorCode === 'idempotency_in_progress') {
+            $headers = $this->extractHeaders($response);
+            $retryAfter = isset($headers['Retry-After']) ? (int) $headers['Retry-After'] : null;
+
+            throw new IdempotencyInProgressException($message, $retryAfter, $e, $errorCode);
+        }
+
+        if ($errorCode === 'idempotency_key_conflict') {
+            throw new IdempotencyConflictException($message, $e, $errorCode);
+        }
+
+        throw new ConflictException($message, $e, $errorCode);
     }
 
     /**
