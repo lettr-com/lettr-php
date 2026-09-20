@@ -5,15 +5,19 @@ declare(strict_types=1);
 use Lettr\Builders\EmailBuilder;
 use Lettr\Dto\Email\ListEmailEventsFilter;
 use Lettr\Dto\Email\ListEmailsFilter;
+use Lettr\Dto\Email\ListScheduledEmailsFilter;
+use Lettr\Dto\Email\ScheduledEmail;
 use Lettr\Dto\Email\SendEmailData;
 use Lettr\Dto\Email\SendEmailResponse;
 use Lettr\Dto\Email\TransmissionDetail;
 use Lettr\Dto\SendingQuota;
+use Lettr\Enums\ScheduledEmailState;
 use Lettr\Enums\TransmissionState;
 use Lettr\Responses\ListEmailEventsResponse;
 use Lettr\Responses\ListEmailsResponse;
 use Lettr\Services\EmailService;
 use Lettr\ValueObjects\EmailAddress;
+use Tests\Support\BasicTransporter;
 use Tests\Support\MockTransporter;
 
 test('can create EmailService instance', function (): void {
@@ -403,9 +407,24 @@ test('find forwards from/to query params when provided', function (): void {
         ]);
 });
 
-test('schedule posts to /emails/scheduled', function (): void {
+test('schedule posts to /emails/scheduled and returns the scheduled email', function (): void {
     $transporter = new MockTransporter;
-    $transporter->response = ['request_id' => 'req_sched', 'accepted' => 1, 'rejected' => 0];
+    $transporter->response = [
+        'request_id' => 'sch_01JQZ3N2K8XW9V6M4TBRC7YHDE',
+        'transmission_id' => null,
+        'state' => 'scheduled',
+        'scheduled_at' => '2026-04-19T12:00:00Z',
+        'from' => 'sender@example.com',
+        'from_name' => 'Sender Name',
+        'subject' => 'Later',
+        'recipients' => ['r@example.com'],
+        'num_recipients' => 1,
+        'accepted' => 1,
+        'rejected' => 0,
+        'tag' => 'receipts',
+        'failure_reason' => null,
+        'events' => [],
+    ];
 
     $service = new EmailService($transporter);
     $data = SendEmailData::from([
@@ -416,43 +435,182 @@ test('schedule posts to /emails/scheduled', function (): void {
         'scheduled_at' => '2026-04-19T12:00:00Z',
     ]);
 
-    $response = $service->schedule($data);
+    $scheduled = $service->schedule($data);
 
     expect($transporter->lastUri)->toBe('emails/scheduled')
         ->and($transporter->lastData['scheduled_at'])->toBe('2026-04-19T12:00:00Z')
-        ->and((string) $response->requestId)->toBe('req_sched');
+        ->and($scheduled)->toBeInstanceOf(ScheduledEmail::class)
+        // The id is Lettr's own, not the provider's transmission id.
+        ->and((string) $scheduled->requestId)->toBe('sch_01JQZ3N2K8XW9V6M4TBRC7YHDE')
+        ->and($scheduled->transmissionId)->toBeNull()
+        ->and($scheduled->state)->toBe(ScheduledEmailState::Scheduled)
+        ->and($scheduled->isCancellable())->toBeTrue()
+        ->and($scheduled->tag)->toBe('receipts');
 });
 
-test('getScheduled returns TransmissionDetail', function (): void {
+test('getScheduled returns a scheduled email that has not been sent yet', function (): void {
     $transporter = new MockTransporter;
     $transporter->response = [
-        'transmission_id' => 'tx_123',
+        'request_id' => 'sch_01JQZ3N2K8XW9V6M4TBRC7YHDE',
+        'transmission_id' => null,
         'state' => 'scheduled',
-        'scheduled_at' => '2026-04-19T12:00:00+00:00',
+        'scheduled_at' => '2026-04-19T12:00:00Z',
         'from' => 'sender@example.com',
         'from_name' => 'Sender Name',
         'subject' => 'Later',
         'recipients' => ['r@example.com'],
         'num_recipients' => 1,
+        'accepted' => 1,
+        'rejected' => 0,
+        'tag' => 'receipts',
+        'failure_reason' => null,
         'events' => [],
     ];
 
     $service = new EmailService($transporter);
-    $scheduled = $service->getScheduled('tx_123');
+    $scheduled = $service->getScheduled('sch_01JQZ3N2K8XW9V6M4TBRC7YHDE');
 
-    expect($transporter->lastUri)->toBe('emails/scheduled/tx_123')
-        ->and($scheduled)->toBeInstanceOf(TransmissionDetail::class)
-        ->and($scheduled->transmissionId)->toBe('tx_123')
-        ->and($scheduled->state)->toBe(TransmissionState::Scheduled)
+    expect($transporter->lastUri)->toBe('emails/scheduled/sch_01JQZ3N2K8XW9V6M4TBRC7YHDE')
+        ->and($scheduled)->toBeInstanceOf(ScheduledEmail::class)
+        ->and($scheduled->transmissionId)->toBeNull()
+        ->and($scheduled->state)->toBe(ScheduledEmailState::Scheduled)
         ->and($scheduled->fromName)->toBe('Sender Name')
         ->and($scheduled->numRecipients)->toBe(1);
 });
 
-test('cancelScheduled deletes /emails/scheduled/{id}', function (): void {
+test('getScheduled carries the provider transmission id once the email is sent', function (): void {
     $transporter = new MockTransporter;
+    $transporter->response = [
+        'request_id' => 'sch_01JQZ3N2K8XW9V6M4TBRC7YHDE',
+        // Known only after the email is handed over — this is the value that
+        // appears on webhook events.
+        'transmission_id' => '7686140844331501179',
+        'state' => 'sent',
+        'scheduled_at' => '2026-04-19T12:00:00Z',
+        'from' => 'sender@example.com',
+        'from_name' => null,
+        'subject' => 'Later',
+        'recipients' => ['r@example.com'],
+        'num_recipients' => 1,
+        'accepted' => 1,
+        'rejected' => 0,
+        'tag' => null,
+        'failure_reason' => null,
+        'events' => [],
+    ];
+
+    $scheduled = (new EmailService($transporter))->getScheduled('sch_01JQZ3N2K8XW9V6M4TBRC7YHDE');
+
+    expect($scheduled->transmissionId)->toBe('7686140844331501179')
+        ->and($scheduled->state)->toBe(ScheduledEmailState::Sent)
+        ->and($scheduled->isSent())->toBeTrue()
+        ->and($scheduled->isCancellable())->toBeFalse();
+});
+
+test('listScheduled pages through /emails/scheduled', function (): void {
+    $transporter = new MockTransporter;
+    $transporter->response = [
+        'scheduled_emails' => [[
+            'request_id' => 'sch_01JQZ3N2K8XW9V6M4TBRC7YHDE',
+            'transmission_id' => null,
+            'state' => 'scheduled',
+            'scheduled_at' => '2026-04-19T12:00:00Z',
+            'from' => 'sender@example.com',
+            'from_name' => 'Sender Name',
+            'subject' => 'Later',
+            'recipients' => ['r@example.com'],
+            'num_recipients' => 1,
+            'accepted' => 1,
+            'rejected' => 0,
+            'tag' => 'receipts',
+            'failure_reason' => null,
+            'events' => [],
+        ]],
+        'pagination' => ['current_page' => 1, 'last_page' => 3, 'per_page' => 25, 'total' => 62],
+    ];
+
     $service = new EmailService($transporter);
+    $page = $service->listScheduled(
+        ListScheduledEmailsFilter::create()->status(ScheduledEmailState::Scheduled)->perPage(25)->page(1)
+    );
 
-    $service->cancelScheduled('tx_987');
+    expect($transporter->lastUri)->toBe('emails/scheduled')
+        ->and($transporter->lastQuery)->toBe(['status' => 'scheduled', 'per_page' => 25, 'page' => 1])
+        ->and($page->scheduledEmails)->toHaveCount(1)
+        ->and($page->scheduledEmails->first()?->state)->toBe(ScheduledEmailState::Scheduled)
+        ->and($page->pagination->total)->toBe(62)
+        ->and($page->hasMore())->toBeTrue()
+        ->and($page->pagination->nextPage())->toBe(2);
+});
 
-    expect($transporter->lastUri)->toBe('emails/scheduled/tx_987');
+test('listScheduled without a filter sends no query parameters', function (): void {
+    $transporter = new MockTransporter;
+    $transporter->response = [
+        'scheduled_emails' => [],
+        'pagination' => ['current_page' => 1, 'last_page' => 1, 'per_page' => 25, 'total' => 0],
+    ];
+
+    $page = (new EmailService($transporter))->listScheduled();
+
+    expect($transporter->lastQuery)->toBe([])
+        ->and($page->scheduledEmails)->toHaveCount(0)
+        ->and($page->hasMore())->toBeFalse();
+});
+
+test('cancelScheduled deletes and returns the cancelled email', function (): void {
+    $transporter = new MockTransporter;
+    $transporter->response = [
+        'request_id' => 'sch_01JQZ3N2K8XW9V6M4TBRC7YHDE',
+        'transmission_id' => null,
+        'state' => 'cancelled',
+        'scheduled_at' => '2026-04-19T12:00:00Z',
+        'from' => 'sender@example.com',
+        'from_name' => null,
+        'subject' => 'Later',
+        'recipients' => ['r@example.com'],
+        'num_recipients' => 1,
+        'accepted' => 0,
+        'rejected' => 0,
+        'tag' => null,
+        'failure_reason' => null,
+        'events' => [],
+    ];
+
+    $cancelled = (new EmailService($transporter))->cancelScheduled('sch_01JQZ3N2K8XW9V6M4TBRC7YHDE');
+
+    expect($transporter->lastUri)->toBe('emails/scheduled/sch_01JQZ3N2K8XW9V6M4TBRC7YHDE')
+        ->and($cancelled->state)->toBe(ScheduledEmailState::Cancelled)
+        ->and($cancelled->isCancelled())->toBeTrue()
+        // Never handed over, so there is no provider id and nothing was accepted.
+        ->and($cancelled->transmissionId)->toBeNull()
+        ->and($cancelled->accepted)->toBe(0);
+});
+
+test('cancelScheduled still works on a transporter that cannot return a DELETE body', function (): void {
+    // A custom transporter implementing only TransporterContract: the email is
+    // cancelled, then read back. One extra request, same result.
+    $transporter = new BasicTransporter;
+    $transporter->response = [
+        'request_id' => 'sch_01JQZ3N2K8XW9V6M4TBRC7YHDE',
+        'transmission_id' => null,
+        'state' => 'cancelled',
+        'scheduled_at' => '2026-04-19T12:00:00Z',
+        'from' => 'sender@example.com',
+        'from_name' => null,
+        'subject' => 'Later',
+        'recipients' => ['r@example.com'],
+        'num_recipients' => 1,
+        'accepted' => 0,
+        'rejected' => 0,
+        'tag' => null,
+        'failure_reason' => null,
+        'events' => [],
+    ];
+
+    $cancelled = (new EmailService($transporter))->cancelScheduled('sch_01JQZ3N2K8XW9V6M4TBRC7YHDE');
+
+    expect($transporter->calls)->toBe([
+        'DELETE emails/scheduled/sch_01JQZ3N2K8XW9V6M4TBRC7YHDE',
+        'GET emails/scheduled/sch_01JQZ3N2K8XW9V6M4TBRC7YHDE',
+    ])->and($cancelled->state)->toBe(ScheduledEmailState::Cancelled);
 });

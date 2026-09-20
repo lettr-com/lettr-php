@@ -5,15 +5,19 @@ declare(strict_types=1);
 namespace Lettr\Services;
 
 use Lettr\Builders\EmailBuilder;
+use Lettr\Contracts\SupportsDeleteWithResponse;
 use Lettr\Contracts\SupportsRequestHeaders;
 use Lettr\Contracts\TransporterContract;
 use Lettr\Dto\Email\ListEmailEventsFilter;
 use Lettr\Dto\Email\ListEmailsFilter;
+use Lettr\Dto\Email\ListScheduledEmailsFilter;
+use Lettr\Dto\Email\ScheduledEmail;
 use Lettr\Dto\Email\SendEmailData;
 use Lettr\Dto\Email\SendEmailResponse;
 use Lettr\Dto\Email\TransmissionDetail;
 use Lettr\Responses\ListEmailEventsResponse;
 use Lettr\Responses\ListEmailsResponse;
+use Lettr\Responses\ListScheduledEmailsResponse;
 use Lettr\ValueObjects\EmailAddress;
 use Lettr\ValueObjects\IdempotencyKey;
 use Lettr\ValueObjects\RequestId;
@@ -210,33 +214,74 @@ final class EmailService
 
     /**
      * Schedule an email for later delivery.
+     *
+     * The returned `requestId` (`sch_...`) identifies the scheduled email and
+     * is what {@see self::getScheduled()} and {@see self::cancelScheduled()}
+     * take. It is not the sending provider's transmission id: that arrives as
+     * `transmissionId` once the email is actually sent.
      */
-    public function schedule(SendEmailData|EmailBuilder $data): SendEmailResponse
+    public function schedule(SendEmailData|EmailBuilder $data): ScheduledEmail
     {
         $emailData = $data instanceof EmailBuilder ? $data->build() : $data;
 
-        /** @var array{request_id: string, accepted: int, rejected: int} $response */
+        /** @var array<string, mixed> $response */
         $response = $this->transporter->post(self::EMAILS_SCHEDULED_ENDPOINT, $emailData->toArray());
 
-        return SendEmailResponse::from($response, $this->transporter->lastResponseHeaders());
+        return ScheduledEmail::from($response);
     }
 
     /**
-     * Get a scheduled transmission by ID.
+     * List scheduled emails, newest delivery time first.
      */
-    public function getScheduled(string $transmissionId): TransmissionDetail
+    public function listScheduled(?ListScheduledEmailsFilter $filter = null): ListScheduledEmailsResponse
     {
+        $query = $filter !== null ? $filter->toArray() : [];
+
+        /** @var array{scheduled_emails: array<int, array<string, mixed>>, pagination: array{current_page: int, last_page: int, per_page: int, total: int}} $response */
+        $response = $this->transporter->getWithQuery(self::EMAILS_SCHEDULED_ENDPOINT, $query);
+
+        return ListScheduledEmailsResponse::from($response);
+    }
+
+    /**
+     * Get a scheduled email by its request ID (`sch_...`).
+     *
+     * Answers immediately after scheduling, and keeps answering once the email
+     * has been sent or cancelled.
+     */
+    public function getScheduled(string|RequestId $requestId): ScheduledEmail
+    {
+        $requestId = $requestId instanceof RequestId ? $requestId->value : $requestId;
+
         /** @var array<string, mixed> $response */
-        $response = $this->transporter->get(self::EMAILS_SCHEDULED_ENDPOINT.'/'.$transmissionId);
+        $response = $this->transporter->get(self::EMAILS_SCHEDULED_ENDPOINT.'/'.$requestId);
 
-        return TransmissionDetail::from($response);
+        return ScheduledEmail::from($response);
     }
 
     /**
-     * Cancel a scheduled transmission.
+     * Cancel a scheduled email before it is sent.
+     *
+     * Returns the cancelled email. Throws when it is already sent, already
+     * cancelled, or being sent right now.
      */
-    public function cancelScheduled(string $transmissionId): void
+    public function cancelScheduled(string|RequestId $requestId): ScheduledEmail
     {
-        $this->transporter->delete(self::EMAILS_SCHEDULED_ENDPOINT.'/'.$transmissionId);
+        $requestId = $requestId instanceof RequestId ? $requestId->value : $requestId;
+
+        $uri = self::EMAILS_SCHEDULED_ENDPOINT.'/'.$requestId;
+
+        // A transporter that cannot hand back a DELETE body still cancels the
+        // email; we just read it back separately. See SupportsDeleteWithResponse.
+        if (! $this->transporter instanceof SupportsDeleteWithResponse) {
+            $this->transporter->delete($uri);
+
+            return $this->getScheduled($requestId);
+        }
+
+        /** @var array<string, mixed> $response */
+        $response = $this->transporter->deleteReturningBody($uri);
+
+        return ScheduledEmail::from($response);
     }
 }

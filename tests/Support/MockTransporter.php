@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Support;
 
+use Lettr\Contracts\SupportsDeleteWithResponse;
 use Lettr\Contracts\SupportsRequestHeaders;
 use Lettr\Contracts\TransporterContract;
 use Throwable;
@@ -16,7 +17,7 @@ use Throwable;
  * to make every request raise that exception instead, for testing how services
  * translate API errors.
  */
-final class MockTransporter implements SupportsRequestHeaders, TransporterContract
+final class MockTransporter implements SupportsDeleteWithResponse, SupportsRequestHeaders, TransporterContract
 {
     public ?Throwable $throws = null;
 
@@ -100,6 +101,13 @@ final class MockTransporter implements SupportsRequestHeaders, TransporterContra
     public function delete(string $uri): void
     {
         $this->lastUri = $uri;
+    }
+
+    public function deleteReturningBody(string $uri): array
+    {
+        $this->lastUri = $uri;
+
+        return $this->response;
     }
 
     public function deleteWithBody(string $uri, array $data): array
