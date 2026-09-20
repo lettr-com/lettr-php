@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.8.1] - 2026-09-20
+
+### Fixed
+
+- **`getScheduled()` threw for a legacy transmission id.** An id handed out before Lettr held scheduled emails itself is answered from delivery events, in a shape that has no `sch_` id, and 2.8.0 required one — so it threw `InvalidValueException: Request ID cannot be empty.` `requestId` now falls back to the transmission id in that response, so it is always the id that addresses the email you asked about.
+
+  2.8.0 fixed reading back `sch_` ids and broke this path in the same change. Only that one path is affected; everything else in 2.8.0 is unchanged.
+
 ## [2.8.0] - 2026-09-20
 
 Scheduled emails changed shape on the API side, and this release catches the SDK up. **If you schedule emails, `getScheduled()` currently throws against the live API — upgrade.** Nothing outside scheduled emails is touched: `send()`, `find()`, `list()`, templates, audience and campaigns are all unchanged, as are `TransmissionDetail` and `TransmissionState`.

@@ -16,7 +16,10 @@ use Lettr\ValueObjects\RequestId;
  * Two ids, and they are not interchangeable:
  *
  * - `requestId` (`sch_...`) identifies the scheduled email for its whole life
- *   and is what `getScheduled()` and `cancelScheduled()` take.
+ *   and is what `getScheduled()` and `cancelScheduled()` take. Reading back a
+ *   legacy provider transmission id answers from delivery events, and this
+ *   then carries that transmission id - so it is always the id that addresses
+ *   the email you asked about.
  * - `transmissionId` is the sending provider's id. It is `null` until the
  *   email is actually sent, and it is the value that appears on webhook
  *   events, so use it to correlate them.
@@ -57,8 +60,14 @@ final readonly class ScheduledEmail
         /** @var array<string> $recipients */
         $recipients = $data['recipients'] ?? [];
 
+        // Reading back a legacy provider transmission id - one handed out
+        // before Lettr held scheduled emails itself - is answered from
+        // delivery events, in a shape that has no `sch_` id. The id the caller
+        // addressed it with is the transmission id, so fall back to that.
+        $requestId = (string) ($data['request_id'] ?? $data['transmission_id'] ?? '');
+
         return new self(
-            requestId: new RequestId((string) $data['request_id']),
+            requestId: new RequestId($requestId),
             transmissionId: isset($data['transmission_id']) ? (string) $data['transmission_id'] : null,
             state: ScheduledEmailState::from((string) $data['state']),
             scheduledAt: (string) $data['scheduled_at'],

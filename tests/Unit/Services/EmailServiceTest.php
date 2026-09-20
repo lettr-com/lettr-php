@@ -614,3 +614,29 @@ test('cancelScheduled still works on a transporter that cannot return a DELETE b
         'GET emails/scheduled/sch_01JQZ3N2K8XW9V6M4TBRC7YHDE',
     ])->and($cancelled->state)->toBe(ScheduledEmailState::Cancelled);
 });
+
+test('getScheduled still reads back a legacy transmission id', function (): void {
+    // Ids handed out before Lettr held scheduled emails itself are answered
+    // from delivery events, in the older shape: no request_id, no
+    // accepted/rejected/tag, and the provider's own states.
+    $transporter = new MockTransporter;
+    $transporter->response = [
+        'transmission_id' => '7686140844331501179',
+        'state' => 'sent',
+        'scheduled_at' => '2026-09-16T15:00:00+00:00',
+        'from' => 'sender@example.com',
+        'from_name' => 'Sender Name',
+        'subject' => 'Scheduled Newsletter',
+        'recipients' => ['r@example.com'],
+        'num_recipients' => 1,
+        'events' => [],
+    ];
+
+    $scheduled = (new EmailService($transporter))->getScheduled('7686140844331501179');
+
+    expect($scheduled->transmissionId)->toBe('7686140844331501179')
+        // No sch_ id in this shape, so it falls back to the id used to ask.
+        ->and((string) $scheduled->requestId)->toBe('7686140844331501179')
+        ->and($scheduled->accepted)->toBe(0)
+        ->and($scheduled->tag)->toBeNull();
+});
