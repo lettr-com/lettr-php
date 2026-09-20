@@ -8,6 +8,7 @@ use GuzzleHttp\Client as GuzzleClient;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\GuzzleException;
 use JsonException;
+use Lettr\Contracts\SupportsDeleteWithResponse;
 use Lettr\Contracts\SupportsRequestHeaders;
 use Lettr\Contracts\TransporterContract;
 use Lettr\Dto\RateLimit;
@@ -28,7 +29,7 @@ use Psr\Http\Message\ResponseInterface;
 /**
  * HTTP Client for Lettr API.
  */
-final class Client implements SupportsRequestHeaders, TransporterContract
+final class Client implements SupportsDeleteWithResponse, SupportsRequestHeaders, TransporterContract
 {
     private readonly ClientInterface $httpClient;
 
@@ -125,6 +126,14 @@ final class Client implements SupportsRequestHeaders, TransporterContract
     public function delete(string $uri): void
     {
         $this->request('DELETE', $uri);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function deleteReturningBody(string $uri): array
+    {
+        return $this->request('DELETE', $uri);
     }
 
     /**

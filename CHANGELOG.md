@@ -4,6 +4,33 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.8.0] - 2026-09-20
+
+Scheduled emails changed shape on the API side, and this release catches the SDK up. **If you schedule emails, `getScheduled()` currently throws against the live API — upgrade.** Nothing outside scheduled emails is touched: `send()`, `find()`, `list()`, templates, audience and campaigns are all unchanged, as are `TransmissionDetail` and `TransmissionState`.
+
+### Fixed
+
+- **`getScheduled()` threw on every scheduled email.** The API now answers with Lettr's own scheduled-email shape, and the old `TransmissionDetail` could not hold it: the provider's transmission id is `null` until the email is actually sent (a `TypeError` on a non-nullable `string`), and the states `sending` and `cancelled` are not in `TransmissionState` (a `ValueError`). Scheduled emails now have their own type and enum, so neither can happen.
+
+### Added
+
+- **`Dto\Email\ScheduledEmail`** — what `schedule()`, `getScheduled()`, `cancelScheduled()` and `listScheduled()` return. Carries `requestId`, `transmissionId`, `state`, `scheduledAt`, `from`, `fromName`, `subject`, `recipients`, `numRecipients`, `accepted`, `rejected`, `tag`, `failureReason` and `events`, plus `isCancellable()`, `isSent()` and `isCancelled()`.
+
+  **Two ids, and they answer different questions.** `requestId` (`sch_...`) identifies the scheduled email for its whole life and is what you pass to `getScheduled()` and `cancelScheduled()`. `transmissionId` is the sending provider's id: `null` until the email is sent, and the value that appears on your **webhook events**. If you were storing the id from `schedule()` to match webhooks, store `transmissionId` from a later read instead — it is not available at scheduling time, because the email has not been handed over yet.
+
+- **`Enums\ScheduledEmailState`** — `Scheduled`, `Sending`, `Sent`, `Cancelled`, `Failed`, with `isCancellable()` and `isTerminal()`. Separate from `TransmissionState`, which still describes a *sent* email from `find()`.
+
+- **`EmailService::listScheduled()`** — lists what is queued, newest delivery time first, with `ListScheduledEmailsFilter` (`status`, `perPage`, `page`) and the usual `pagination`. There was previously no way to ask what was scheduled.
+
+- **`Contracts\SupportsDeleteWithResponse`** — cancelling returns the cancelled email, which `TransporterContract::delete(): void` cannot express. Widening that method would break every custom transporter, so this follows the same optional-capability pattern as `SupportsRequestHeaders`. A transporter that does not implement it still cancels correctly; the SDK reads the email back in a second request.
+
+### Changed
+
+- **`schedule()` returns `ScheduledEmail`** instead of `SendEmailResponse`. It previously reported `accepted`/`rejected` as if the email had been sent, which it has not been — those are now on `ScheduledEmail` alongside the state. Quota headers are not returned for a scheduled email.
+- **`getScheduled()` returns `ScheduledEmail`** instead of `TransmissionDetail`. It also accepts a `RequestId`, like `find()`.
+- **`cancelScheduled()` returns the cancelled `ScheduledEmail`** instead of `void`, so you can confirm the state without a second call. Existing code that ignores the return value is unaffected.
+- **The scheduling window is now 5 minutes to 30 days**, up from 3 days. The old ceiling came from the sending provider, which no longer holds scheduled emails.
+
 ## [2.7.0] - 2026-09-09
 
 Two additions: knowing when an imported template is actually ready, and not sending the same email twice. Everything is additive — code written against 2.6.0 keeps compiling and sends byte-identical requests.

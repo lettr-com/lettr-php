@@ -282,6 +282,57 @@ Both extend `ConflictException`, so existing handlers keep catching them.
 | Retention | 24 hours |
 | Scope | Per team **and** API key — the same string through a different API key is a different key |
 
+### Scheduled Emails
+
+Schedule an email for any time between 5 minutes and 30 days out. Lettr holds it until then, so it can be listed, read back and cancelled right up to the moment it is sent.
+
+```php
+use Lettr\Dto\Email\ListScheduledEmailsFilter;
+use Lettr\Enums\ScheduledEmailState;
+
+$scheduled = $lettr->emails()->schedule(
+    $lettr->emails()->create()
+        ->from('sender@yourdomain.com')
+        ->to(['recipient@example.com'])
+        ->subject('Your weekly digest')
+        ->html('<h1>This week</h1>')
+        ->scheduledAt('2026-10-15T09:00:00Z')
+);
+
+$scheduled->requestId;       // sch_01JQZ3... — use this to read it back or cancel it
+$scheduled->state;           // ScheduledEmailState::Scheduled
+$scheduled->transmissionId;  // null until the email is actually sent
+```
+
+**The two ids are not interchangeable.** `requestId` identifies the scheduled email for its whole life. `transmissionId` is the sending provider's id: it stays `null` until the email goes out, and it is the value that appears on your **webhook events**, so use that one to correlate them.
+
+```php
+// Read it back at any point — including after it was cancelled.
+$scheduled = $lettr->emails()->getScheduled($scheduled->requestId);
+
+if ($scheduled->isCancellable()) {
+    $cancelled = $lettr->emails()->cancelScheduled($scheduled->requestId);
+    $cancelled->state; // ScheduledEmailState::Cancelled
+}
+
+// List what is queued.
+$page = $lettr->emails()->listScheduled(
+    ListScheduledEmailsFilter::create()
+        ->status(ScheduledEmailState::Scheduled)
+        ->perPage(25)
+);
+
+foreach ($page->scheduledEmails as $email) {
+    echo $email->requestId.' → '.$email->scheduledAt.PHP_EOL;
+}
+
+$page->hasMore();
+```
+
+States are `Scheduled`, `Sending`, `Sent`, `Cancelled` and `Failed`. Cancelling is only possible while `Scheduled`; once it is being sent or has been sent, `cancelScheduled()` throws a `ConflictException`. A `Failed` email carries a `failureReason`.
+
+Once an email has been sent, `events` fills in from its delivery events — empty before that, and for a few minutes afterwards while they are indexed.
+
 ### Marketing Emails & Unsubscribe
 
 When sending marketing emails (`transactional(false)`), the email provider automatically adds `List-Unsubscribe` and `List-Unsubscribe-Post` headers for compliance. To allow recipients to unsubscribe from your marketing emails:
