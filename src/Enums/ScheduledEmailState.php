@@ -29,6 +29,39 @@ enum ScheduledEmailState: string
     /** Sending was attempted and gave up. See `failureReason`. */
     case Failed = 'failed';
 
+    /*
+     * The states below are the sending provider's, not Lettr's. Reading back a
+     * legacy provider transmission id is answered from delivery events, which
+     * report the provider's vocabulary - so these arrive on that path only, and
+     * never on a `sch_` id.
+     */
+
+    /** @deprecated Legacy provider state. */
+    case Submitted = 'submitted';
+
+    /** @deprecated Legacy provider state. */
+    case Generating = 'generating';
+
+    /** @deprecated Legacy provider state. */
+    case Delivered = 'delivered';
+
+    /** @deprecated Legacy provider state. */
+    case Bounced = 'bounced';
+
+    /** A state this version of the SDK does not know. */
+    case Unknown = 'unknown';
+
+    /**
+     * Resolve a wire value, without throwing on one we do not know.
+     *
+     * A state the API adds later must not turn every read into a `ValueError`,
+     * so an unrecognised value becomes {@see self::Unknown}.
+     */
+    public static function fromWire(string $value): self
+    {
+        return self::tryFrom($value) ?? self::Unknown;
+    }
+
     /** Whether the email can still be cancelled. */
     public function isCancellable(): bool
     {
@@ -39,8 +72,10 @@ enum ScheduledEmailState: string
     public function isTerminal(): bool
     {
         return match ($this) {
-            self::Sent, self::Cancelled, self::Failed => true,
-            self::Scheduled, self::Sending => false,
+            self::Sent, self::Cancelled, self::Failed,
+            self::Delivered, self::Bounced => true,
+            self::Scheduled, self::Sending,
+            self::Submitted, self::Generating, self::Unknown => false,
         };
     }
 }

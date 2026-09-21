@@ -622,7 +622,9 @@ test('getScheduled still reads back a legacy transmission id', function (): void
     $transporter = new MockTransporter;
     $transporter->response = [
         'transmission_id' => '7686140844331501179',
-        'state' => 'sent',
+        // A state only that path reports. Lettr never says 'delivered' about a
+        // scheduled email - once it is sent, delivery lives on the events.
+        'state' => 'delivered',
         'scheduled_at' => '2026-09-16T15:00:00+00:00',
         'from' => 'sender@example.com',
         'from_name' => 'Sender Name',
@@ -637,6 +639,28 @@ test('getScheduled still reads back a legacy transmission id', function (): void
     expect($scheduled->transmissionId)->toBe('7686140844331501179')
         // No sch_ id in this shape, so it falls back to the id used to ask.
         ->and((string) $scheduled->requestId)->toBe('7686140844331501179')
+        ->and($scheduled->state)->toBe(ScheduledEmailState::Delivered)
         ->and($scheduled->accepted)->toBe(0)
         ->and($scheduled->tag)->toBeNull();
+});
+
+test('an unrecognised state reads back as Unknown rather than throwing', function (): void {
+    // A state the API adds after this version ships must not turn every read
+    // into a ValueError.
+    $transporter = new MockTransporter;
+    $transporter->response = [
+        'request_id' => 'sch_01JQZ3N2K8XW9V6M4TBRC7YHDE',
+        'transmission_id' => null,
+        'state' => 'a_state_from_the_future',
+        'scheduled_at' => '2026-09-16T15:00:00+00:00',
+        'from' => 'sender@example.com',
+        'recipients' => ['r@example.com'],
+        'num_recipients' => 1,
+        'events' => [],
+    ];
+
+    $scheduled = (new EmailService($transporter))->getScheduled('sch_01JQZ3N2K8XW9V6M4TBRC7YHDE');
+
+    expect($scheduled->state)->toBe(ScheduledEmailState::Unknown)
+        ->and($scheduled->state->isCancellable())->toBeFalse();
 });

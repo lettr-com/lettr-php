@@ -69,7 +69,7 @@ final readonly class ScheduledEmail
         return new self(
             requestId: new RequestId($requestId),
             transmissionId: isset($data['transmission_id']) ? (string) $data['transmission_id'] : null,
-            state: ScheduledEmailState::from((string) $data['state']),
+            state: ScheduledEmailState::fromWire((string) $data['state']),
             scheduledAt: (string) $data['scheduled_at'],
             from: (string) $data['from'],
             fromName: isset($data['from_name']) ? (string) $data['from_name'] : null,
