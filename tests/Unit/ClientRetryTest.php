@@ -334,6 +334,25 @@ describe('review fixes', function (): void {
         expect($h->sleeps)->toBe([]);
     });
 
+    test('Retry-After 0 still waits a little instead of retrying instantly', function (): void {
+        $h = new RetryHarness([rateLimited('0'), rateLimited('0'), ok()], new RetryConfig(pace: false));
+
+        $h->client->get('domains');
+
+        expect($h->sleeps)->toBe([0.5, 0.5]);
+    });
+
+    test('with pacing, a retry waits until the window the 429 reported has reset', function (): void {
+        // 429 says Remaining 0, reset at ...589; clock at ...588. The 0.5s retry
+        // floor plus pacing tops up to the reset: 1s in total, not 0.5 + 1.
+        $h = new RetryHarness([rateLimited('0'), ok()]);
+
+        $h->client->get('domains');
+
+        expect($h->sleeps)->toBe([0.5, 0.5])
+            ->and(array_sum($h->sleeps))->toBe(1.0);
+    });
+
     test('maxWaitSeconds 0 does not hammer the API without a Retry-After', function (): void {
         $h = new RetryHarness([rateLimited(null), ok()], new RetryConfig(maxRetries: 3, maxWaitSeconds: 0));
 

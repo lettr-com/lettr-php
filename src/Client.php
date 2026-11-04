@@ -44,6 +44,9 @@ final class Client implements SupportsDeleteWithResponse, SupportsRequestHeaders
 
     private ?int $lastStatusCode = null;
 
+    /** Shortest wait before retrying a 429, in seconds. */
+    private const MIN_RETRY_DELAY = 0.5;
+
     /** Null means {@see RetryConfig::default()}. */
     private ?RetryConfig $retry = null;
 
@@ -338,6 +341,11 @@ final class Client implements SupportsDeleteWithResponse, SupportsRequestHeaders
             // No hint from the API: back off 0.5s, 1s, 2s, ...
             return min(0.5 * (2 ** $attempt), (float) $config->maxWaitSeconds);
         }
+
+        // Retry-After is whole seconds, so near a window boundary the API can
+        // say 0 while the window has not reset yet. Retrying at once would
+        // burn every retry inside the same window; wait a little regardless.
+        $retryAfter = max($retryAfter, self::MIN_RETRY_DELAY);
 
         // The API wants a longer pause than the caller is willing to block
         // for; let the caller's own queue or backoff handle it.

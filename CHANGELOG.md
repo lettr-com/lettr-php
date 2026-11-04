@@ -10,7 +10,7 @@ The SDK now copes with the API's rate limit (3 requests per second per team) on 
 
 ### Changed
 
-- **Rate-limit 429s are retried automatically.** Up to 3 retries, waiting the `Retry-After` the API sends (or backing off 0.5s, 1s, 2s when it sends none). `RateLimitException` is thrown only once retries are exhausted. A 429 is rejected before the API does any work, so retrying cannot send an email or create a contact twice.
+- **Rate-limit 429s are retried automatically.** Up to 3 retries, waiting the `Retry-After` the API sends, at least 0.5s (or backing off 0.5s, 1s, 2s when it sends none). `RateLimitException` is thrown only once retries are exhausted. A 429 is rejected before the API does any work, so retrying cannot send an email or create a contact twice.
 
   **What is not retried:** quota 429s (`QuotaExceededException`), validation errors, 5xx responses and timeouts — those behave exactly as before. A `Retry-After` longer than 5 seconds is also thrown at once rather than blocking.
 
@@ -22,7 +22,7 @@ The SDK now copes with the API's rate limit (3 requests per second per team) on 
 
   **Chunked calls are not atomic.** If a chunk fails after earlier chunks were saved, a new `PartialBulkFailureException` is thrown carrying the merged `result` of the saved chunks, `processed` (how many input items were handled) and `total`; the original failure is `getPrevious()`. If the first chunk fails, nothing was saved and its original exception is thrown unchanged.
 
-  `lastResponseHeaders()`, `lastStatusCode()` and `Lettr::lastRateLimit()` describe the last request sent, i.e. the last chunk or retry.
+  `lastResponseHeaders()`, `lastStatusCode()` and `Lettr::lastRateLimit()` describe the last request that **succeeded** — after a chunked call, the last chunk that went through. Failed requests do not update them (unchanged from before).
 
 ### Fixed
 
