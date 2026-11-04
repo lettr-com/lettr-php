@@ -14,6 +14,7 @@ use Lettr\Contracts\SupportsRequestHeaders;
 use Lettr\Contracts\TransporterContract;
 use Lettr\Dto\RateLimit;
 use Lettr\Dto\SendingQuota;
+use Lettr\Enums\ErrorCode;
 use Lettr\Exceptions\ApiException;
 use Lettr\Exceptions\ConflictException;
 use Lettr\Exceptions\ForbiddenException;
@@ -42,12 +43,6 @@ final class Client implements SupportsDeleteWithResponse, SupportsRequestHeaders
     private array $lastHeaders = [];
 
     private ?int $lastStatusCode = null;
-
-    /**
-     * Rate-limit 429 error codes that mean "out of quota", not "too fast".
-     * Waiting a few seconds will not help, so these are never retried.
-     */
-    private const QUOTA_ERROR_CODES = ['quota_exceeded', 'daily_quota_exceeded'];
 
     /** Null means {@see RetryConfig::default()}. */
     private ?RetryConfig $retry = null;
@@ -275,6 +270,11 @@ final class Client implements SupportsDeleteWithResponse, SupportsRequestHeaders
             try {
                 $response = $this->httpClient->request($method, $uri, $options);
             } catch (GuzzleException $e) {
+                $errorResponse = method_exists($e, 'getResponse') ? $e->getResponse() : null;
+                if ($errorResponse instanceof ResponseInterface) {
+                    $this->rememberRateLimit($errorResponse);
+                }
+
                 $delay = $this->retryDelay($e, $attempt);
 
                 if ($delay === null) {
@@ -321,13 +321,20 @@ final class Client implements SupportsDeleteWithResponse, SupportsRequestHeaders
         $decoded = json_decode($contents, true);
         $errorCode = is_array($decoded) ? ($decoded['error_code'] ?? null) : null;
 
-        if (in_array($errorCode, self::QUOTA_ERROR_CODES, true)) {
+        // Out of quota, not too fast: waiting a few seconds will not help.
+        if (self::isQuotaErrorCode($errorCode)) {
             return null;
         }
 
-        $retryAfter = $this->parseRetryAfter($response->getHeaderLine('Retry-After'));
+        $retryAfter = $this->parseRetryAfter($response);
 
         if ($retryAfter === null) {
+            // A zero cap leaves no room to back off; retrying at once would
+            // only add load, so surface the 429 instead.
+            if ($config->maxWaitSeconds === 0) {
+                return null;
+            }
+
             // No hint from the API: back off 0.5s, 1s, 2s, ...
             return min(0.5 * (2 ** $attempt), (float) $config->maxWaitSeconds);
         }
@@ -342,11 +349,14 @@ final class Client implements SupportsDeleteWithResponse, SupportsRequestHeaders
     }
 
     /**
-     * Retry-After is either a number of seconds or an HTTP date.
+     * Seconds to wait from Retry-After, which is either a number of seconds
+     * or an HTTP date. A date is measured against the server's own Date
+     * header when there is one, so local clock skew does not distort it.
+     * Header names are matched case-insensitively (HTTP/2 sends lowercase).
      */
-    private function parseRetryAfter(string $value): ?float
+    private function parseRetryAfter(ResponseInterface $response): ?float
     {
-        $value = trim($value);
+        $value = trim($response->getHeaderLine('Retry-After'));
 
         if ($value === '') {
             return null;
@@ -358,7 +368,29 @@ final class Client implements SupportsDeleteWithResponse, SupportsRequestHeaders
 
         $timestamp = strtotime($value);
 
-        return $timestamp === false ? null : max(0.0, $timestamp - $this->now());
+        if ($timestamp === false) {
+            return null;
+        }
+
+        $serverNow = strtotime($response->getHeaderLine('Date'));
+        $now = $serverNow !== false ? (float) $serverNow : $this->now();
+
+        return max(0.0, $timestamp - $now);
+    }
+
+    /**
+     * Retry-After as the whole seconds exposed on exceptions.
+     */
+    private function retryAfterSeconds(ResponseInterface $response): ?int
+    {
+        $seconds = $this->parseRetryAfter($response);
+
+        return $seconds === null ? null : (int) ceil($seconds);
+    }
+
+    private static function isQuotaErrorCode(mixed $errorCode): bool
+    {
+        return is_string($errorCode) && (ErrorCode::tryFrom($errorCode)?->isQuotaError() ?? false);
     }
 
     /**
@@ -381,7 +413,12 @@ final class Client implements SupportsDeleteWithResponse, SupportsRequestHeaders
 
         $rateLimit = RateLimit::fromHeaders($this->extractHeaders($response));
 
-        if ($rateLimit === null || $rateLimit->remaining > 0 || $rateLimit->reset <= 0) {
+        // RateLimit reads a missing Remaining header as 0; only pause when
+        // the API actually said the window is used up.
+        if ($rateLimit === null
+            || ! $response->hasHeader('X-RateLimit-Remaining')
+            || $rateLimit->remaining > 0
+            || $rateLimit->reset <= 0) {
             return;
         }
 
@@ -491,8 +528,7 @@ final class Client implements SupportsDeleteWithResponse, SupportsRequestHeaders
     private function handleConflict(ResponseInterface $response, string $message, GuzzleException $e, ?string $errorCode): never
     {
         if ($errorCode === 'idempotency_in_progress') {
-            $headers = $this->extractHeaders($response);
-            $retryAfter = isset($headers['Retry-After']) ? (int) $headers['Retry-After'] : null;
+            $retryAfter = $this->retryAfterSeconds($response);
 
             throw new IdempotencyInProgressException($message, $retryAfter, $e, $errorCode);
         }
@@ -516,12 +552,12 @@ final class Client implements SupportsDeleteWithResponse, SupportsRequestHeaders
         $headers = $this->extractHeaders($response);
         $errorCode = $body['error_code'] ?? null;
 
-        if ($errorCode === 'quota_exceeded' || $errorCode === 'daily_quota_exceeded') {
+        if (self::isQuotaErrorCode($errorCode)) {
             throw new QuotaExceededException($message, SendingQuota::fromHeaders($headers), $e, $errorCode);
         }
 
         $rateLimit = RateLimit::fromHeaders($headers);
-        $retryAfter = isset($headers['Retry-After']) ? (int) $headers['Retry-After'] : null;
+        $retryAfter = $this->retryAfterSeconds($response);
 
         throw new RateLimitException($message, $rateLimit, $retryAfter, $e, $errorCode);
     }

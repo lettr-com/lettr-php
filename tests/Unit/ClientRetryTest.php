@@ -9,6 +9,7 @@ use GuzzleHttp\Middleware;
 use GuzzleHttp\Psr7\Response;
 use Lettr\Client;
 use Lettr\Exceptions\ApiException;
+use Lettr\Exceptions\IdempotencyInProgressException;
 use Lettr\Exceptions\InvalidValueException;
 use Lettr\Exceptions\QuotaExceededException;
 use Lettr\Exceptions\RateLimitException;
@@ -288,5 +289,81 @@ describe('pacing', function (): void {
         $h->client->get('domains');
 
         expect($h->sleeps)->toBe([]);
+    });
+});
+
+describe('review fixes', function (): void {
+    test('a date Retry-After is measured against the server Date, not the local clock', function (): void {
+        $response = new Response(429, [
+            'Retry-After' => gmdate('D, d M Y H:i:s', 1_793_773_589).' GMT',
+            'Date' => gmdate('D, d M Y H:i:s', 1_793_773_588).' GMT',
+        ], '{"message":"Too many requests."}');
+        $h = new RetryHarness([$response, ok()]);
+        // Local clock 2 seconds ahead of the server.
+        $h->now = 1_793_773_590.0;
+
+        $h->client->get('domains');
+
+        expect($h->sleeps)->toBe([1.0]);
+    });
+
+    test('an error response that uses up the window still paces the next request', function (): void {
+        $h = new RetryHarness([
+            new Response(404, ['X-RateLimit-Limit' => '3', 'X-RateLimit-Remaining' => '0', 'X-RateLimit-Reset' => '1793773589'], '{"message":"Not found."}'),
+            ok(),
+        ]);
+
+        try {
+            $h->client->get('emails/missing');
+        } catch (ApiException) {
+        }
+        $h->client->get('domains');
+
+        expect($h->sleeps)->toBe([1.0]);
+    });
+
+    test('a missing Remaining header does not count as an exhausted window', function (): void {
+        $h = new RetryHarness([
+            ok(['X-RateLimit-Limit' => '3', 'X-RateLimit-Reset' => '1793773589']),
+            ok(),
+        ]);
+
+        $h->client->get('domains');
+        $h->client->get('domains');
+
+        expect($h->sleeps)->toBe([]);
+    });
+
+    test('maxWaitSeconds 0 does not hammer the API without a Retry-After', function (): void {
+        $h = new RetryHarness([rateLimited(null), ok()], new RetryConfig(maxRetries: 3, maxWaitSeconds: 0));
+
+        expect(fn () => $h->client->get('domains'))->toThrow(RateLimitException::class)
+            ->and($h->history)->toHaveCount(1);
+    });
+
+    test('a lowercase retry-after header (HTTP/2) still reaches the exception', function (): void {
+        $h = new RetryHarness([
+            new Response(429, ['retry-after' => '3', 'x-ratelimit-limit' => '3', 'x-ratelimit-remaining' => '0'], '{"message":"Too many requests."}'),
+        ], RetryConfig::disabled());
+
+        try {
+            $h->client->get('domains');
+            $this->fail('Expected RateLimitException.');
+        } catch (RateLimitException $e) {
+            expect($e->retryAfter)->toBe(3);
+        }
+    });
+
+    test('a lowercase retry-after on an in-progress 409 still reaches the exception', function (): void {
+        $h = new RetryHarness([
+            new Response(409, ['retry-after' => '2'], '{"message":"Still processing.","error_code":"idempotency_in_progress"}'),
+        ]);
+
+        try {
+            $h->client->post('emails', []);
+            $this->fail('Expected IdempotencyInProgressException.');
+        } catch (IdempotencyInProgressException $e) {
+            expect($e->retryAfter)->toBe(2);
+        }
     });
 });

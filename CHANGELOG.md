@@ -24,6 +24,10 @@ The SDK now copes with the API's rate limit (3 requests per second per team) on 
 
   `lastResponseHeaders()`, `lastStatusCode()` and `Lettr::lastRateLimit()` describe the last request sent, i.e. the last chunk or retry.
 
+### Fixed
+
+- **`RateLimitException::$retryAfter` and `IdempotencyInProgressException::$retryAfter` were always `null` against the live API.** The API sends `retry-after` in lowercase over HTTP/2, and the header was looked up case-sensitively. It is now matched case-insensitively, and an HTTP-date value is understood too.
+
 ### Added
 
 - **`Lettr\RetryConfig`** — `maxRetries` (default 3), `maxWaitSeconds` (default 5), `pace` (default `true`), with `RetryConfig::default()` and `RetryConfig::disabled()`. Pass it as the new optional third argument to `Lettr::client($apiKey, $userAgentSuffix, $retry)` or `new Client(...)`.

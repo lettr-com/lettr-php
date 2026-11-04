@@ -168,40 +168,30 @@ final class AudienceContactService
             return $send($data);
         }
 
+        // One place that copies the batch-wide fields onto a chunk, so a
+        // field added to the DTO cannot be dropped from only one shape.
+        $chunkOf = static fn (array $emails, ?array $contacts): BulkCreateAudienceContactsData => new BulkCreateAudienceContactsData(
+            emails: $emails,
+            listId: $data->listId,
+            properties: $data->properties,
+            contacts: $contacts,
+            listIds: $data->listIds,
+            topics: $data->topics,
+            updateExisting: $data->updateExisting,
+        );
+
         if ($data->emails !== []) {
             return $this->inChunks(
                 $data->emails,
-                fn (array $emails, int $offset): BulkStoreAudienceContactsResult => self::offsetErrors(
-                    $send(new BulkCreateAudienceContactsData(
-                        emails: $emails,
-                        listId: $data->listId,
-                        properties: $data->properties,
-                        listIds: $data->listIds,
-                        topics: $data->topics,
-                        updateExisting: $data->updateExisting,
-                    )),
-                    $offset,
-                ),
+                fn (array $emails, int $offset): BulkStoreAudienceContactsResult => self::offsetErrors($send($chunkOf($emails, $data->contacts)), $offset),
                 self::mergeStoreResults(...),
-                fn () => $send($data),
             );
         }
 
         return $this->inChunks(
             $data->contacts ?? [],
-            fn (array $contacts, int $offset): BulkStoreAudienceContactsResult => self::offsetErrors(
-                $send(new BulkCreateAudienceContactsData(
-                    listId: $data->listId,
-                    properties: $data->properties,
-                    contacts: $contacts,
-                    listIds: $data->listIds,
-                    topics: $data->topics,
-                    updateExisting: $data->updateExisting,
-                )),
-                $offset,
-            ),
+            fn (array $contacts, int $offset): BulkStoreAudienceContactsResult => self::offsetErrors($send($chunkOf([], $contacts)), $offset),
             self::mergeStoreResults(...),
-            fn () => $send($data),
         );
     }
 
@@ -225,12 +215,11 @@ final class AudienceContactService
         return $this->inChunks(
             $data->contactIds,
             fn (array $ids): BulkAttachContactsToListsResult => $send(new BulkAttachContactsToListsData($ids, $data->listIds)),
-            static fn (BulkAttachContactsToListsResult $a, BulkAttachContactsToListsResult $b): BulkAttachContactsToListsResult => new BulkAttachContactsToListsResult(
-                attached: $a->attached + $b->attached,
-                alreadyAttached: $a->alreadyAttached + $b->alreadyAttached,
-                totalPairs: $a->totalPairs + $b->totalPairs,
+            static fn (array $results): BulkAttachContactsToListsResult => new BulkAttachContactsToListsResult(
+                attached: (int) array_sum(array_column($results, 'attached')),
+                alreadyAttached: (int) array_sum(array_column($results, 'alreadyAttached')),
+                totalPairs: (int) array_sum(array_column($results, 'totalPairs')),
             ),
-            fn () => $send($data),
         );
     }
 
@@ -254,12 +243,11 @@ final class AudienceContactService
         return $this->inChunks(
             $data->contactIds,
             fn (array $ids): BulkDetachContactsFromListsResult => $send(new BulkDetachContactsFromListsData($ids, $data->listIds)),
-            static fn (BulkDetachContactsFromListsResult $a, BulkDetachContactsFromListsResult $b): BulkDetachContactsFromListsResult => new BulkDetachContactsFromListsResult(
-                detached: $a->detached + $b->detached,
-                notPresent: $a->notPresent + $b->notPresent,
-                totalPairs: $a->totalPairs + $b->totalPairs,
+            static fn (array $results): BulkDetachContactsFromListsResult => new BulkDetachContactsFromListsResult(
+                detached: (int) array_sum(array_column($results, 'detached')),
+                notPresent: (int) array_sum(array_column($results, 'notPresent')),
+                totalPairs: (int) array_sum(array_column($results, 'totalPairs')),
             ),
-            fn () => $send($data),
         );
     }
 
@@ -283,12 +271,11 @@ final class AudienceContactService
         return $this->inChunks(
             $data->contactIds,
             fn (array $ids): BulkSubscribeContactsToTopicsResult => $send(new BulkAudienceContactTopicsData($ids, $data->topicIds)),
-            static fn (BulkSubscribeContactsToTopicsResult $a, BulkSubscribeContactsToTopicsResult $b): BulkSubscribeContactsToTopicsResult => new BulkSubscribeContactsToTopicsResult(
-                subscribed: $a->subscribed + $b->subscribed,
-                alreadySubscribed: $a->alreadySubscribed + $b->alreadySubscribed,
-                totalPairs: $a->totalPairs + $b->totalPairs,
+            static fn (array $results): BulkSubscribeContactsToTopicsResult => new BulkSubscribeContactsToTopicsResult(
+                subscribed: (int) array_sum(array_column($results, 'subscribed')),
+                alreadySubscribed: (int) array_sum(array_column($results, 'alreadySubscribed')),
+                totalPairs: (int) array_sum(array_column($results, 'totalPairs')),
             ),
-            fn () => $send($data),
         );
     }
 
@@ -313,11 +300,10 @@ final class AudienceContactService
         return $this->inChunks(
             $data->contactIds,
             fn (array $ids): BulkUnsubscribeContactsFromTopicsResult => $send(new BulkAudienceContactTopicsData($ids, $data->topicIds)),
-            static fn (BulkUnsubscribeContactsFromTopicsResult $a, BulkUnsubscribeContactsFromTopicsResult $b): BulkUnsubscribeContactsFromTopicsResult => new BulkUnsubscribeContactsFromTopicsResult(
-                unsubscribed: $a->unsubscribed + $b->unsubscribed,
-                totalPairs: $a->totalPairs + $b->totalPairs,
+            static fn (array $results): BulkUnsubscribeContactsFromTopicsResult => new BulkUnsubscribeContactsFromTopicsResult(
+                unsubscribed: (int) array_sum(array_column($results, 'unsubscribed')),
+                totalPairs: (int) array_sum(array_column($results, 'totalPairs')),
             ),
-            fn () => $send($data),
         );
     }
 
@@ -375,49 +361,48 @@ final class AudienceContactService
     }
 
     /**
-     * Send `$items` in chunks of {@see self::BULK_CHUNK_SIZE} and fold the
-     * results together. At or under the cap, `$single` sends the original
-     * request untouched, so small calls are byte-identical to before.
+     * Send `$items` in chunks of {@see self::BULK_CHUNK_SIZE} and merge the
+     * results once at the end. At or under the cap this is a single request
+     * with the same payload as before chunking existed.
      *
      * @template TItem
      * @template TResult of BulkStoreAudienceContactsResult|BulkAttachContactsToListsResult|BulkDetachContactsFromListsResult|BulkSubscribeContactsToTopicsResult|BulkUnsubscribeContactsFromTopicsResult
      *
      * @param  array<int, TItem>  $items
      * @param  callable(array<int, TItem>, int): TResult  $sendChunk  Receives the chunk and its offset in `$items`.
-     * @param  callable(TResult, TResult): TResult  $merge
-     * @param  callable(): TResult  $single
+     * @param  callable(non-empty-list<TResult>): TResult  $merge
      * @return TResult
      *
      * @throws PartialBulkFailureException
      */
-    private function inChunks(array $items, callable $sendChunk, callable $merge, callable $single): mixed
+    private function inChunks(array $items, callable $sendChunk, callable $merge): mixed
     {
+        $items = array_values($items);
         $total = count($items);
 
         if ($total <= self::BULK_CHUNK_SIZE) {
-            return $single();
+            return $sendChunk($items, 0);
         }
 
-        $result = null;
+        $results = [];
         $processed = 0;
 
-        foreach (array_chunk(array_values($items), self::BULK_CHUNK_SIZE) as $chunk) {
+        foreach (array_chunk($items, self::BULK_CHUNK_SIZE) as $chunk) {
             try {
-                $chunkResult = $sendChunk($chunk, $processed);
+                $results[] = $sendChunk($chunk, $processed);
             } catch (LettrException $e) {
-                if ($result === null) {
+                if ($results === []) {
                     throw $e;
                 }
 
-                throw new PartialBulkFailureException($result, $processed, $total, $e);
+                throw new PartialBulkFailureException($merge($results), $processed, $total, $e);
             }
 
-            $result = $result === null ? $chunkResult : $merge($result, $chunkResult);
             $processed += count($chunk);
         }
 
-        /** @var TResult $result */
-        return $result;
+        /** @var non-empty-list<TResult> $results More than one chunk was sent. */
+        return $merge($results);
     }
 
     /**
@@ -447,15 +432,18 @@ final class AudienceContactService
         );
     }
 
-    private static function mergeStoreResults(BulkStoreAudienceContactsResult $a, BulkStoreAudienceContactsResult $b): BulkStoreAudienceContactsResult
+    /**
+     * @param  non-empty-list<BulkStoreAudienceContactsResult>  $results
+     */
+    private static function mergeStoreResults(array $results): BulkStoreAudienceContactsResult
     {
         return new BulkStoreAudienceContactsResult(
-            created: $a->created + $b->created,
-            alreadyExisted: $a->alreadyExisted + $b->alreadyExisted,
-            updated: $a->updated + $b->updated,
-            errorCount: $a->errorCount + $b->errorCount,
-            errors: [...$a->errors, ...$b->errors],
-            contacts: [...$a->contacts, ...$b->contacts],
+            created: (int) array_sum(array_column($results, 'created')),
+            alreadyExisted: (int) array_sum(array_column($results, 'alreadyExisted')),
+            updated: (int) array_sum(array_column($results, 'updated')),
+            errorCount: (int) array_sum(array_column($results, 'errorCount')),
+            errors: array_merge(...array_column($results, 'errors')),
+            contacts: array_merge(...array_column($results, 'contacts')),
         );
     }
 }
