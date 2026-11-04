@@ -25,7 +25,8 @@ use Throwable;
  * already attached, so resubmitting a chunk that did land is harmless.
  *
  * Only thrown when at least one chunk succeeded. If the first chunk fails,
- * nothing was written and its original exception is thrown unchanged.
+ * its original exception is thrown unchanged, exactly as for a call that
+ * fits in one request.
  */
 final class PartialBulkFailureException extends LettrException
 {
