@@ -74,10 +74,12 @@ final class Lettr
      * @param  string|null  $userAgentSuffix  Optional identifier appended to the
      *                                        User-Agent by wrapping packages
      *                                        (e.g. "lettr-laravel/2.2.0").
+     * @param  RetryConfig|null  $retry  How to handle the rate limit; see {@see RetryConfig}.
+     *                                   Defaults to retrying rate-limit 429s.
      */
-    public static function client(string $apiKey, ?string $userAgentSuffix = null): self
+    public static function client(string $apiKey, ?string $userAgentSuffix = null, ?RetryConfig $retry = null): self
     {
-        return new self(new Client($apiKey, $userAgentSuffix));
+        return new self(new Client($apiKey, $userAgentSuffix, $retry));
     }
 
     /**
