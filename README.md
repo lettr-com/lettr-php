@@ -498,7 +498,8 @@ $lettr = Lettr::client('your-api-key', retry: RetryConfig::disabled()); // fail 
 
 Bulk contact calls (`bulkCreate()`, `bulkAttachLists()`, `bulkDetachLists()`,
 `bulkSubscribeTopics()`, `bulkUnsubscribeTopics()`) take any number of contacts:
-over 1000 they are split into requests of 1000 and the results merged. Chunked
+over 1000 they are split into requests of 1000 and the results merged. (A
+`bulkCreate()` that sets both `emails` and `contacts` is sent as-is, unsplit.) Chunked
 calls are not atomic — if a later chunk fails, `PartialBulkFailureException`
 carries the merged `result` of what was saved and how many items were
 `processed`, so you can resubmit `array_slice($items, $e->processed)`.

@@ -15,11 +15,14 @@ use Throwable;
  * A bulk call larger than the API's per-request cap was split into chunks,
  * and a chunk failed after earlier chunks had already been saved.
  *
- * Chunked calls are not atomic. Everything in `$result` was written; the
- * first `$processed` items of the input were handled, the rest were not.
- * The failure that stopped the run is {@see self::getPrevious()} — e.g. a
- * {@see RateLimitException} once retries ran out. Resubmit the remaining
- * items (`array_slice($items, $e->processed)`) to continue.
+ * Chunked calls are not atomic. Everything in `$result` was written, and
+ * covers the first `$processed` items of the input. Later chunks were not
+ * sent. The failing chunk itself may or may not have been applied — after a
+ * timeout or 5xx the API might have processed it. The failure that stopped
+ * the run is {@see self::getPrevious()}, e.g. a {@see RateLimitException}
+ * once retries ran out. Resubmit the rest (`array_slice($items, $e->processed)`)
+ * to continue; the bulk calls report rows that already existed or were
+ * already attached, so resubmitting a chunk that did land is harmless.
  *
  * Only thrown when at least one chunk succeeded. If the first chunk fails,
  * nothing was written and its original exception is thrown unchanged.
