@@ -4,6 +4,35 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+The SDK now copes with the API's rate limit (3 requests per second per team) on its own, and splits bulk contact calls that are over the 1000-contact cap. No signatures or return types change; code written against 2.8.0 keeps compiling.
+
+### Changed
+
+- **Rate-limit 429s are retried automatically.** Up to 3 retries, waiting the `Retry-After` the API sends, at least 0.5s (or backing off 0.5s, 1s, 2s when it sends none). `RateLimitException` is thrown only once retries are exhausted. A 429 is rejected before the API does any work, so retrying cannot send an email or create a contact twice.
+
+  **What is not retried:** quota 429s (`QuotaExceededException`), validation errors, 5xx responses and timeouts — those behave exactly as before. A `Retry-After` longer than 5 seconds is also thrown at once rather than blocking.
+
+  **Timing changes.** A call that used to throw immediately on a 429 can now take a few seconds before succeeding (worst case about 15 seconds before it throws). If you need the old fail-fast behaviour, pass `RetryConfig::disabled()`.
+
+- **Requests are paced.** When a response reports no requests left in the current window (`X-RateLimit-Remaining: 0`), the next request waits for the window to reset (at most 5 seconds). This only coordinates requests within one PHP process; several workers sharing a team still rely on the retry above.
+
+- **Bulk contact calls over 1000 contacts are split** into chunks of 1000 and sent one after another, instead of failing with a 422. Applies to `bulkCreate()`, `bulkAttachLists()`, `bulkDetachLists()`, `bulkSubscribeTopics()` and `bulkUnsubscribeTopics()`. Results are merged into the usual result type: counts are summed, `contacts` keep submission order, and each error's `index` points at the row in your input. Calls with 1000 contacts or fewer send exactly the same single request as before. A `bulkCreate()` that sets both `emails` and `contacts` is not split.
+
+  **Chunked calls are not atomic.** If a chunk fails after earlier chunks were saved, a new `PartialBulkFailureException` is thrown carrying the merged `result` of the saved chunks, `processed` (how many input items were handled) and `total`; the original failure is `getPrevious()`. If the first chunk fails, nothing was saved and its original exception is thrown unchanged.
+
+  `lastResponseHeaders()`, `lastStatusCode()` and `Lettr::lastRateLimit()` describe the last request that **succeeded** — after a chunked call, the last chunk that went through. Failed requests do not update them (unchanged from before).
+
+### Fixed
+
+- **`RateLimitException::$retryAfter` and `IdempotencyInProgressException::$retryAfter` were always `null` against the live API.** The API sends `retry-after` in lowercase over HTTP/2, and the header was looked up case-sensitively. It is now matched case-insensitively, and an HTTP-date value is understood too.
+
+### Added
+
+- **`Lettr\RetryConfig`** — `maxRetries` (default 3), `maxWaitSeconds` (default 5), `pace` (default `true`), with `RetryConfig::default()` and `RetryConfig::disabled()`. Pass it as the new optional third argument to `Lettr::client($apiKey, $userAgentSuffix, $retry)` or `new Client(...)`.
+- **`Exceptions\PartialBulkFailureException`** — see above.
+
 ## [2.8.0] - 2026-09-20
 
 Scheduled emails changed shape on the API side, and this release catches the SDK up. **If you schedule emails, `getScheduled()` currently throws against the live API — upgrade.** Nothing outside scheduled emails is touched: `send()`, `find()`, `list()`, templates, audience and campaigns are all unchanged, as are `TransmissionDetail` and `TransmissionState`.

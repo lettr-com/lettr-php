@@ -252,8 +252,9 @@ $response->replayed; // true when this replayed an earlier send — no second em
 ```
 
 **You choose the key; the SDK never generates one.** It only works if the same
-key is used on both attempts, and the SDK does not retry — one `send()` is one
-HTTP request — so the retry is yours. Use something stable for one logical send:
+key is used on both attempts. The SDK retries only rate-limit 429s (which the
+API rejects before doing any work); a timeout, a 5xx or an in-progress conflict
+is not retried, so that retry is yours. Use something stable for one logical send:
 an order id, a job id, anything you can regenerate. A fresh value per attempt
 protects nothing.
 
@@ -446,9 +447,9 @@ try {
         echo $e->rateLimit->remaining;  // Remaining requests
         echo $e->rateLimit->reset;      // Unix timestamp when limit resets
     }
-    if ($e->retryAfter !== null) {
-        sleep($e->retryAfter);          // Seconds to wait before retrying
-    }
+    // The SDK already retried this 429 (see "Rate Limits" below) before
+    // throwing, so hand it to your queue rather than retrying in a loop.
+    echo $e->retryAfter;                // Seconds the API asked to wait, if sent
 } catch (ApiException $e) {
     // Other API errors
     echo "API error ({$e->getCode()}): " . $e->getMessage();
@@ -471,6 +472,37 @@ The API enforces a rate limit of **3 requests per second** per team, shared acro
 | `X-Ratelimit-Remaining` | Remaining requests in current window |
 | `X-Ratelimit-Reset` | Unix timestamp when the limit resets |
 | `Retry-After` | Seconds to wait (only on 429 responses) |
+
+**The SDK handles the rate limit for you.** A rate-limit 429 is retried up to 3
+times, waiting the `Retry-After` the API sends (at most 5 seconds per wait);
+`RateLimitException` is thrown only once retries run out, or straight away if
+the API asks for a longer wait. When a response reports no requests left in the
+window, the next request waits for the reset. Quota 429s, validation errors,
+5xx responses and timeouts are never retried. Pacing works within one PHP
+process — several workers sharing a team still rely on the retry.
+
+Tune or turn it off with `RetryConfig`:
+
+```php
+use Lettr\Lettr;
+use Lettr\RetryConfig;
+
+$lettr = Lettr::client('your-api-key', retry: new RetryConfig(
+    maxRetries: 3,      // retries after the first attempt
+    maxWaitSeconds: 5,  // longest single wait; longer Retry-After throws at once
+    pace: true,         // wait for the window to reset when it is used up
+));
+
+$lettr = Lettr::client('your-api-key', retry: RetryConfig::disabled()); // fail fast, as before
+```
+
+Bulk contact calls (`bulkCreate()`, `bulkAttachLists()`, `bulkDetachLists()`,
+`bulkSubscribeTopics()`, `bulkUnsubscribeTopics()`) take any number of contacts:
+over 1000 they are split into requests of 1000 and the results merged. (A
+`bulkCreate()` that sets both `emails` and `contacts` is sent as-is, unsplit.) Chunked
+calls are not atomic — if a later chunk fails, `PartialBulkFailureException`
+carries the merged `result` of what was saved and how many items were
+`processed`, so you can resubmit `array_slice($items, $e->processed)`.
 
 You can read rate limit info after any API call:
 
