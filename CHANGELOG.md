@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [2.9.0] - 2026-11-05
 
 The SDK now copes with the API's rate limit (3 requests per second per team) on its own, and splits bulk contact calls that are over the 1000-contact cap. No signatures or return types change; code written against 2.8.0 keeps compiling.
 
